@@ -1,0 +1,53 @@
+{
+  "name": "@mapconductor/react-for-tomtom",
+  "version": "0.1.2",
+  "description": "TomTom Orbis provider for MapConductor React SDK",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.ja.md",
+    "README.es-419.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --watch",
+    "clean": "rm -rf dist",
+    "test": "echo 'No tests yet'"
+  },
+  "keywords": [
+    "maps",
+    "tomtom",
+    "tomtom-orbis",
+    "maplibre-gl",
+    "react",
+    "typescript"
+  ],
+  "author": "MapConductor",
+  "license": "Apache2",
+  "peerDependencies": {
+    "@mapconductor/js-sdk-core": "^0.1.1",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@mapconductor/js-sdk-core": "^0.1.1",
+    "@mapconductor/js-sdk-react": "^0.1.1",
+    "@tomtom-org/maps-sdk": "^0.51.0",
+    "@turf/turf": "^7.3.5",
+    "lodash-es": "^4.18.1",
+    "maplibre-gl": "^5.24.0"
+  },
+  "devDependencies": {
+    "react": "^19.2.7",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  }
+}
