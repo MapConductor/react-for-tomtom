@@ -8,6 +8,7 @@ import {
   MarkerAnimationLayer,
   MapAttributionOverlay,
   type InfoBubbleEntry,
+  createMapContextValue,
 } from '@mapconductor/js-sdk-react';
 import {
   useCameraRestriction,
@@ -23,6 +24,7 @@ import {
   type GeoPoint,
   type MarkerAnimationOverlayEntry,
   type MapViewControllerInterface,
+  mapViewStateInternal,
 } from '@mapconductor/js-sdk-core';
 import { TomTomProvider, TomTomConfig } from './TomTomProvider';
 import type { TomTomViewStateInterface } from './TomTomViewState';
@@ -112,24 +114,24 @@ function InternalTomTomMapView({
     provider
       .initialize(config)
       .then((ctrl) => {
-        state.setController(ctrl);
-        state.setCameraPositionChangeListener(() => {
+        mapViewStateInternal(state).setController(ctrl);
+        mapViewStateInternal(state).setCameraPositionChangeListener(() => {
           setCameraTick(t => t + 1);
         });
         setController(ctrl);
         typedControllerRef.current = ctrl as TomTomViewController;
 
         ctrl.setCameraMoveStartListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveStartRef.current?.(camera);
         });
         ctrl.setCameraMoveListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveRef.current?.(camera);
           setCameraTick(t => t + 1);
         });
         ctrl.setCameraMoveEndListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveEndRef.current?.(camera);
           setCameraTick(t => t + 1);
         });
@@ -140,7 +142,7 @@ function InternalTomTomMapView({
           // これで `mapViewState.cameraPosition` が最初から権威ある値になり、
           // 拡張モジュールが `cameraPosition.visibleRegion.bounds` を初回から読める。
           const initial = typedControllerRef.current?.getCameraPosition() ?? null;
-          if (initial) state.updateCameraPosition(initial);
+          if (initial) mapViewStateInternal(state).updateCameraPosition(initial);
           setIsLoaded(true);
           onMapLoadedRef.current?.(state);
         });
@@ -208,8 +210,8 @@ function InternalTomTomMapView({
       });
 
     return () => {
-      state.setCameraPositionChangeListener(null);
-      state.setController(null);
+      mapViewStateInternal(state).setCameraPositionChangeListener(null);
+      mapViewStateInternal(state).setController(null);
       typedControllerRef.current = null;
       bridgeUnsubs.current.forEach((unsub) => unsub());
       bridgeUnsubs.current = [];
@@ -233,7 +235,7 @@ function InternalTomTomMapView({
   useMarkerRenderingSupport(state, scope, controller);
 
   return (
-    <MapContext.Provider value={{ controller, isReady, isLoaded, state }}>
+    <MapContext.Provider value={createMapContextValue({ controller, isReady, isLoaded, state })}>
       <div
         style={{
           position: 'relative',

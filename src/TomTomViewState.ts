@@ -115,7 +115,7 @@ export class TomTomViewState
   }
 }
 
-export function useTomTomViewState(params: TomTomViewStateParams = {}): TomTomViewState {
+export function useTomTomViewState(params: TomTomViewStateParams = {}): TomTomViewStateInterface {
   const [state] = useState(() => new TomTomViewState(params));
   return state;
 }
