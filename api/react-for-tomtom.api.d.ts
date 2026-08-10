@@ -1,5 +1,5 @@
 import { StyleInput, TomTomMap } from '@tomtom-org/maps-sdk/map';
-import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, OnMarkerEventHandler, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, OnPolygonEventHandler, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, MarkerAnimationOverlayHost, OnCircleEventHandler, OnPolylineEventHandler, OnGroundImageEventHandler, CameraRestriction, MapDesignTypeInterface, AttributionRule, MapViewStateInterface, MapViewState, MapViewHolder, MapViewBaseProps, AbstractZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, OnMarkerEventHandler, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, OnPolygonEventHandler, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, MarkerAnimationOverlayHost, OnCircleEventHandler, OnPolylineEventHandler, OnGroundImageEventHandler, CameraRestriction, MapDesignTypeInterface, AttributionRule, MapViewStateInterface, MapViewState, MapViewHolder, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import * as maplibregl from 'maplibre-gl';
 import React from 'react';
 
@@ -636,36 +636,31 @@ declare function TomTomMapView(props: TomTomMapViewProps): React.JSX.Element;
 declare function TomTomMapView2D(props: TomTomMapViewProps): React.JSX.Element;
 
 /**
- * Zoom conversion between MapConductor's unified zoom (Google Maps 2D reference)
- * and the TomTom Orbis map's native MapLibre zoom.
+ * 統一ズーム（Google Maps 基準・256px タイル）⇄ 高度の変換。
  *
- * TomTom Orbis on web renders through MapLibre GL JS — the same Web Mercator
- * engine as the MapLibre web provider — so its zoom relates to Google Maps 2D
- * by the same constant offset MapLibre/Mapbox web use (~1.0), independent of
- * latitude. (This differs from android's TomTom SDK, whose ground-scale zoom
- * needed a latitude-dependent 1.76 offset — that native SDK is not what runs on
- * web.) The latitude parameter is kept on the API for signature symmetry with
- * the other converters and is not used by the constant Web-Mercator offset.
+ * TomTom Orbis の web は MapLibre GL JS の上で描かれる（MapLibre web プロバイダと
+ * 同じ Web Mercator エンジン）ので、Google Maps 2D とのズーム差は MapLibre / Mapbox web と
+ * 同じ定数 1.0 で、緯度に依存しない。
+ *
+ * **ネイティブの TomTom SDK とは違う。** android-for-tomtom / ios-for-tomtom は
+ * グラウンドスケール基準で、`1.76 + log2(cos φ)` という緯度依存のオフセットを使う
+ * （コアの {@link GroundScaleZoomAltitudeConverter}）。web で動くのはその SDK ではないので、
+ * ここを 1.76 に揃えてはいけない。
+ *
+ * 換算式はコアの {@link WebMercatorZoomAltitudeConverter} にある。
  */
-declare class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
+declare class ZoomAltitudeConverter extends WebMercatorZoomAltitudeConverter {
     /** Empirical offset: GoogleZoom ≈ TomTom(MapLibre).zoom + 1.0, matching the MapLibre web provider. */
     static readonly TOMTOM_TO_GOOGLE_ZOOM_OFFSET = 1;
-    /** Google↔TomTom zoom offset (googleZoom − tomtomZoom). Constant (Web Mercator). */
+    constructor(zoom0Altitude?: number);
+    /**
+     * Google↔TomTom zoom offset (googleZoom − tomtomZoom). Constant (Web Mercator).
+     *
+     * 緯度引数は他のコンバータと形を揃えるためだけに残してある。
+     */
     static zoomOffsetAt(_latitude: number): number;
     static tomtomZoomToGoogleZoom(tomtomZoom: number, latitude: number): number;
     static googleZoomToTomTomZoom(googleZoom: number, latitude: number): number;
-    private cosLatitudeFactor;
-    private cosTiltFactor;
-    zoomLevelToAltitude({ zoomLevel, latitude, tilt, }: {
-        zoomLevel: number;
-        latitude: number;
-        tilt: number;
-    }): number;
-    altitudeToZoomLevel({ altitude, latitude, tilt, }: {
-        altitude: number;
-        latitude: number;
-        tilt: number;
-    }): number;
 }
 
 export { type TomTomConfig, TomTomDesign, type TomTomMapDesignType, TomTomMapView, TomTomMapView2D, type TomTomMapViewProps, TomTomProvider, TomTomViewController, TomTomViewState, type TomTomViewStateInterface, ZoomAltitudeConverter, useTomTomViewState };
