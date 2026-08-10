@@ -1,5 +1,5 @@
 import { StyleInput, TomTomMap } from '@tomtom-org/maps-sdk/map';
-import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, OnMarkerEventHandler, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, OnPolygonEventHandler, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, MarkerAnimationOverlayHost, OnCircleEventHandler, OnPolylineEventHandler, OnGroundImageEventHandler, CameraRestriction, MapDesignTypeInterface, AttributionRule, MapViewStateInterface, MapViewState, MapViewHolder, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, OnMarkerEventHandler, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, OnPolygonEventHandler, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, MarkerAnimationOverlayHost, OnCircleEventHandler, OnPolylineEventHandler, OnGroundImageEventHandler, CameraRestriction, MapDesignTypeInterface, AttributionRule, MapViewStateInterface, MapViewState, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import * as maplibregl from 'maplibre-gl';
 import React from 'react';
 
@@ -601,24 +601,11 @@ interface TomTomViewStateParams {
     cameraPosition?: MapCameraPosition;
 }
 declare class TomTomViewState extends MapViewState<TomTomMapDesignType> implements TomTomViewStateInterface {
-    readonly id: string;
     readonly apiKey: string;
-    private _cameraPosition;
     private _mapDesignType;
-    private _controller;
-    private _cameraPositionChangeListener;
     constructor({ id, apiKey, mapDesignType, cameraPosition, }?: TomTomViewStateParams);
-    get cameraPosition(): MapCameraPosition;
     get mapDesignType(): TomTomMapDesignType;
     set mapDesignType(value: TomTomMapDesignType);
-    moveCameraTo(position: GeoPoint, durationMillis?: number): void;
-    moveCameraTo(cameraPosition: MapCameraPosition, durationMillis?: number): void;
-    getMapViewHolder(): MapViewHolder<unknown, unknown> | null;
-    fitBounds(bounds: GeoRectBounds, padding?: number): void;
-    setController(ctrl: MapViewControllerInterface | null): void;
-    updateCameraPosition(camera: MapCameraPosition): void;
-    setCameraPositionChangeListener(listener: ((camera: MapCameraPosition) => void) | null): void;
-    private resolveCameraPosition;
 }
 declare function useTomTomViewState(params?: TomTomViewStateParams): TomTomViewStateInterface;
 
