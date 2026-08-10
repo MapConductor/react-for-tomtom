@@ -1,3 +1,4 @@
+import { createGeoPoint, createOverlayHit, type GeoPointInterface, type OverlayHit } from '@mapconductor/js-sdk-core';
 import type { OverlayKind, SlottedOverlayController } from '@mapconductor/js-sdk-core';
 import {
   createGroundImageEntity,
@@ -125,6 +126,25 @@ export class TomTomGroundImageController implements SlottedOverlayController {
 
   setClickListenerAny(_listener: unknown): void {
     // このコントローラは型付きのクリックリスナーを持たない。
+  }
+
+  /**
+   * タップの当たり判定と配送。カスケードの 1 段（{@link OverlayHitResolver}）。
+   * 判定は既存の dispatchClick と同じ（後ろに追加したものから見る = 上に載る方が先）。
+   */
+  resolveTap(position: GeoPointInterface): OverlayHit | null {
+    const clicked = createGeoPoint(position);
+    for (const state of Array.from(this.groundImageStates.values()).reverse()) {
+      if (!state.bounds.contains(clicked)) continue;
+      // クリックを持たないグラウンドイメージはカスケードを止めない（透過）。
+      if (!state.onClick) return null;
+      const onClick = state.onClick;
+      return createOverlayHit('groundImage', clicked, () => {
+        // clicked を正規化してから配送する。理由は core の GroundImageController.dispatchClick を参照。
+        onClick({ state, clicked: wrapClickedPoint(clicked) });
+      });
+    }
+    return null;
   }
 
 }

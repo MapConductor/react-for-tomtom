@@ -1,3 +1,4 @@
+import { createGeoPoint, createOverlayHit, type GeoPointInterface, type OverlayHit } from '@mapconductor/js-sdk-core';
 import type { OverlayKind, SlottedOverlayController } from '@mapconductor/js-sdk-core';
 import {
   createPolygonEntity,
@@ -113,6 +114,23 @@ export class TomTomPolygonConductor implements SlottedOverlayController {
 
   setClickListenerAny(listener: unknown): void {
     this.clickListener = listener as OnPolygonEventHandler | null;
+  }
+
+  /**
+   * タップの当たり判定と配送。カスケードの 1 段（{@link OverlayHitResolver}）。
+   * 判定は既存の handleMapClick と同じ（point-in-polygon、穴と zIndex を考慮）。
+   */
+  resolveTap(position: GeoPointInterface): OverlayHit | null {
+    const clicked = createGeoPoint(position);
+    const entity = this.polygonOverlay.polygonManager.find(clicked);
+    if (!entity) return null;
+    return createOverlayHit('polygon', clicked, () => {
+      // clicked は wrapClickedPoint で正規化してから配送する（日付変更線対策）。
+      // core の PolygonController.dispatchClick と同じ保証をこの経路にも与える。
+      const polygonEvent = { state: entity.state, clicked: wrapClickedPoint(clicked) };
+      entity.state.onClick?.(polygonEvent);
+      this.clickListener?.(polygonEvent);
+    });
   }
 
 }
