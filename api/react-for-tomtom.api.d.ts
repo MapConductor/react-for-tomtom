@@ -536,6 +536,13 @@ declare class TomTomViewController extends BaseMapViewController implements MapV
     animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean>;
     fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean>;
     getCameraPosition(): MapCameraPosition | null;
+    /**
+     * マーカーのヒットテストと配送。カスケードの先頭。
+     *
+     * ズームとポインタ種別（タッチかマウスかで許容半径が変わる）が要るので
+     * コアの既定ではなくここで持つ。判定自体は core の MarkerManager。
+     */
+    protected dispatchMarkerTap(point: GeoPoint): boolean;
     compositionMarkers(data: MarkerState[]): Promise<void>;
     updateMarker(state: MarkerState): Promise<void>;
     setOnMarkerClickListener(_listener: OnMarkerEventHandler | null): void;

@@ -34,6 +34,12 @@ export interface MapEventDeps {
   markInitialized(): void;
   onMapInitialized(): void;
   onMapClick(point: MapPoint): void;
+
+  /**
+   * タップの配送。コアの `BaseMapViewController.dispatchTap` を呼ぶ。
+   * marker → circle → groundImage → polyline → polygon → map を 1 つだけ配送する。
+   */
+  dispatchTap(point: MapPoint): boolean;
   onMapLongClick(point: MapPoint): void;
   onCameraMoveStart(camera: MapCameraPosition): void;
   onCameraMove(camera: MapCameraPosition): void;
@@ -78,37 +84,16 @@ export function installMapEventListeners(deps: MapEventDeps): void {
 
     map.on('click', (e) => {
       const point = lngLatFromEvent(e);
-      // Check markers first (handles both regular and tiled markers), mirroring Android's onMapClick.
-      const markerEntity = deps.markerController.findWithZoom(
-        point,
-        map.getZoom(),
-        deps.markerEventController.lastPointerType,
-      );
-      if (markerEntity?.state.clickable) {
-        deps.markerController.dispatchClick(markerEntity.state);
-        return;
-      }
-      // Overlays: geometric hit-tests from the click's lat/lng (NOT MapLibre
-      // layer/overlay click events), mirroring the marker path above and
-      // android. Consistent across providers. Order: polyline, polygon, circle.
-      if (deps.polylineController.handleMapClick(point, deps.getCameraPosition())) {
-        return;
-      }
-      if (deps.polygonController.handleMapClick(point)) {
-        return;
-      }
-      if (deps.circleController.handleMapClick(point)) {
-        return;
-      }
+      // グラウンドイメージのドラッグ抑止で既に配送済みなら、その click は捨てる。
+      // （mousedown/up で先に配送しているため。GL 系プロバイダ固有の事情。）
       if (skipNextGroundImageClick && deps.groundImageController.hasClickableAt(point)) {
         skipNextGroundImageClick = false;
         return;
       }
       skipNextGroundImageClick = false;
-      if (deps.groundImageController.dispatchClick(point)) {
-        return;
-      }
-      deps.onMapClick(point);
+      // marker → circle → groundImage → polyline → polygon → map の一本道。
+      // 順序と先勝ちはコアの BaseMapViewController.dispatchTap が持つ。
+      deps.dispatchTap(point);
     });
 
     map.on('contextmenu', (e) => {
