@@ -1,5 +1,5 @@
 import { StyleInput, TomTomMap } from '@tomtom-org/maps-sdk/map';
-import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, OnMarkerEventHandler, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapDesignTypeInterface, AttributionRule, MapViewStateInterface, MapViewState, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapDesignTypeInterface, AttributionRule, MapViewStateInterface, MapViewState, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import * as maplibregl from 'maplibre-gl';
 import React from 'react';
 
@@ -191,32 +191,18 @@ declare class TomTomMarkerController extends AbstractMarkerController<TomTomActu
     private hasCompositionChanges;
 }
 
-declare class TomTomMarkerEventController {
-    private readonly controller;
-    private activePointerId;
-    private dragPanWasEnabled;
-    private pointerDownOffset;
-    private dragStarted;
-    /** Last observed pointer input type — used by TomTomViewController for tile-marker hit radius. */
-    lastPointerType: 'touch' | 'mouse';
+/**
+ * TomTom のマーカーイベント。
+ *
+ * ドラッグの状態遷移・パン抑止・リスナー転送はすべてコアの
+ * {@link DefaultMarkerEventController} が持つ。ここに残るのは
+ * **TomTom 固有のもの**だけ——いまは何も無い。
+ *
+ * 移行前はこのファイルが 165 行あり、maplibre / mapbox / maptiler / tomtom / longdo の
+ * 5 本が**型名以外 1 文字も違わなかった**。
+ */
+declare class TomTomMarkerEventController extends DefaultMarkerEventController<TomTomActualMarker> {
     constructor(controller: TomTomMarkerController);
-    resync(): void;
-    setClickListener(listener: OnMarkerEventHandler | null): void;
-    setDragStartListener(listener: OnMarkerEventHandler | null): void;
-    setDragListener(listener: OnMarkerEventHandler | null): void;
-    setDragEndListener(listener: OnMarkerEventHandler | null): void;
-    setAnimateStartListener(listener: OnMarkerEventHandler | null): void;
-    setAnimateEndListener(listener: OnMarkerEventHandler | null): void;
-    destroy(): void;
-    private readonly handlePointerDown;
-    private readonly handlePointerMove;
-    private readonly handlePointerUp;
-    private readonly handlePointerCancel;
-    private finishDrag;
-    private restoreMapInteraction;
-    private findMarkerAtPointer;
-    private positionFromPointer;
-    private localPoint;
 }
 
 type TomTomActualCircle = PolygonFeature & {
