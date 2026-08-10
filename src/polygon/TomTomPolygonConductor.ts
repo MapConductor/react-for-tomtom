@@ -1,3 +1,4 @@
+import type { OverlayKind, SlottedOverlayController } from '@mapconductor/js-sdk-core';
 import {
   createPolygonEntity,
   type GeoPoint,
@@ -7,7 +8,7 @@ import {
 } from '@mapconductor/js-sdk-core';
 import { TomTomPolygonOverlayRenderer } from './TomTomPolygonOverlayRenderer';
 
-export class TomTomPolygonConductor {
+export class TomTomPolygonConductor implements SlottedOverlayController {
   readonly polygonOverlay: TomTomPolygonOverlayRenderer;
   clickListener: OnPolygonEventHandler | null = null;
 
@@ -90,4 +91,28 @@ export class TomTomPolygonConductor {
     this.operation = next.catch(() => undefined);
     return next;
   }
+  // ── SlottedOverlayController（Capable ファサードのスロット） ─────────
+  //
+  // ★ ここを実装し忘れると、コントローラを登録しても composition が黙って捨てられる。
+  //   android-for-maplibre / mapbox のポリゴンが実際にそれで、hasPolygon が常に false、
+  //   ポリゴン単体の状態更新が捨てられていた（ビルドもテストも緑のまま）。
+
+  readonly kind: OverlayKind = 'polygon';
+
+  hasId(id: string): boolean {
+    return this.has({ id } as PolygonState);
+  }
+
+  async compositionAny(data: unknown[]): Promise<void> {
+    await this.composition(data as PolygonState[]);
+  }
+
+  async updateAny(state: unknown): Promise<void> {
+    await this.update(state as PolygonState);
+  }
+
+  setClickListenerAny(listener: unknown): void {
+    this.clickListener = listener as OnPolygonEventHandler | null;
+  }
+
 }
