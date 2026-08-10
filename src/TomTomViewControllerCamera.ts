@@ -1,6 +1,6 @@
 import type * as maplibregl from 'maplibre-gl';
 import {
-  createGeoRectBounds,
+  buildVisibleRegion,
   type GeoRectBounds,
   type MapCameraPosition,
   type VisibleRegion,
@@ -96,16 +96,7 @@ export function readVisibleRegion(map: maplibregl.Map, holder: TomTomMapViewHold
   const height = canvas.clientHeight;
   if (!width || !height) return null;
 
-  const nearLeft = holder.fromScreenOffsetSync({ x: 0, y: height });
-  const nearRight = holder.fromScreenOffsetSync({ x: width, y: height });
-  const farLeft = holder.fromScreenOffsetSync({ x: 0, y: 0 });
-  const farRight = holder.fromScreenOffsetSync({ x: width, y: 0 });
-
-  const bounds = createGeoRectBounds();
-  bounds.extend(nearLeft);
-  bounds.extend(nearRight);
-  bounds.extend(farLeft);
-  bounds.extend(farRight);
-
-  return { bounds, nearLeft, nearRight, farLeft, farRight };
+  // 4 隅の逆投影と bounds の組み立てはコアの buildVisibleRegion が持つ。
+  // android-sdk / ios-sdk の VisibleRegionBuilder と同じ形・同じ隅の割り当て。
+  return buildVisibleRegion(holder, { width, height });
 }
