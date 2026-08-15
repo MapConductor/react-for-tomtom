@@ -10,6 +10,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./state": {
+      "types": "./dist/state.d.ts",
+      "import": "./dist/state.mjs",
+      "require": "./dist/state.js"
     }
   },
   "files": [
@@ -18,8 +23,8 @@
     "README.es-419.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --watch",
+    "build": "tsup src/index.ts src/state.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts src/state.ts --format cjs,esm --watch",
     "clean": "rm -rf dist",
     "test": "echo 'No tests yet'"
   },
