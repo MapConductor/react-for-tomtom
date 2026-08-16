@@ -1,7 +1,9 @@
 import { StyleInput, TomTomMap } from '@tomtom-org/maps-sdk/map';
-import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapDesignTypeInterface, AttributionRule, MapViewStateInterface, MapViewState, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import * as maplibregl from 'maplibre-gl';
 import React from 'react';
+import { TomTomViewStateInterface } from './state.js';
+export { TomTomDesign, TomTomMapDesignType, TomTomViewState, useTomTomViewState } from './state.js';
 
 interface TomTomConfig extends MapConfig {
     /** TomTom API key (mapKey). Passed to `new TomTomMap({ key })`. */
@@ -477,6 +479,17 @@ declare class TomTomRasterLayerOverlayRenderer implements RasterLayerOverlayRend
     onPostProcess(): Promise<void>;
     private addLayer;
     private updateLayer;
+    /**
+     * スタイル再読込中に頼まれた削除の保留分。
+     *
+     * 追加は「ハンドルだけ返して resync が貼り直す」で済むが、削除は manager から
+     * 先に消えるため resync では拾えない。黙って捨てると、スタイル差分適用で
+     * 生き残った GL レイヤが画面に残り続ける（RasterLayer ページで選んだレリーフが
+     * GeoJSON Layer ページにも出る、という形で顕在化した）。ここで保留しておき、
+     * スタイルが編集可能になった最初の操作でまとめて消す。
+     */
+    private pendingRemovals;
+    private flushPendingRemovals;
     private removeLayer;
 }
 
@@ -549,60 +562,6 @@ declare class TomTomViewController extends BaseMapViewController implements MapV
     destroy(): void;
 }
 
-interface TomTomMapDesignType extends MapDesignTypeInterface<string> {
-    /** TomTom Orbis style: a standard style id ('standardLight' etc.) or a StandardStyle config. */
-    readonly style: StyleInput;
-}
-/**
- * TomTom Orbis map design (style).
- *
- * `id` / `getValue()` is the stable key (used for save/restore and as the map
- * re-init trigger); the value actually loaded by the SDK is [style] (a TomTom
- * Orbis {@link StyleInput}). Mirrors android `TomTomMapDesign` (Standard /
- * Driving / Satellite), with light/dark variants exposed like the other web
- * providers.
- */
-declare class TomTomDesign implements TomTomMapDesignType {
-    readonly id: string;
-    readonly style: StyleInput;
-    readonly attributionRules: readonly AttributionRule[];
-    constructor(id: string, style: StyleInput, attributionRules?: readonly AttributionRule[]);
-    getValue(): string;
-    /** Default (browsing) light style. */
-    static readonly Standard: TomTomDesign;
-    static readonly StandardLight: TomTomDesign;
-    static readonly StandardDark: TomTomDesign;
-    /** Navigation-oriented styles. */
-    static readonly Driving: TomTomDesign;
-    static readonly DrivingLight: TomTomDesign;
-    static readonly DrivingDark: TomTomDesign;
-    /** Minimalist monochrome styles. */
-    static readonly MonoLight: TomTomDesign;
-    static readonly MonoDark: TomTomDesign;
-    /** Satellite imagery basemap. */
-    static readonly Satellite: TomTomDesign;
-}
-
-interface TomTomViewStateInterface extends MapViewStateInterface<TomTomMapDesignType> {
-    /** TomTom API key (mapKey) used to initialize the Orbis map. */
-    readonly apiKey: string;
-}
-interface TomTomViewStateParams {
-    id?: string;
-    /** TomTom API key (mapKey). Required for the Orbis map/tiles to load. */
-    apiKey?: string;
-    mapDesignType?: TomTomMapDesignType;
-    cameraPosition?: MapCameraPosition;
-}
-declare class TomTomViewState extends MapViewState<TomTomMapDesignType> implements TomTomViewStateInterface {
-    readonly apiKey: string;
-    private _mapDesignType;
-    constructor({ id, apiKey, mapDesignType, cameraPosition, }?: TomTomViewStateParams);
-    get mapDesignType(): TomTomMapDesignType;
-    set mapDesignType(value: TomTomMapDesignType);
-}
-declare function useTomTomViewState(params?: TomTomViewStateParams): TomTomViewStateInterface;
-
 interface TomTomMapViewProps extends MapViewBaseProps<TomTomViewStateInterface> {
     maxZoom?: number;
     minZoom?: number;
@@ -644,4 +603,4 @@ declare class ZoomAltitudeConverter extends WebMercatorZoomAltitudeConverter {
     static googleZoomToTomTomZoom(googleZoom: number, latitude: number): number;
 }
 
-export { type TomTomConfig, TomTomDesign, type TomTomMapDesignType, TomTomMapView, TomTomMapView2D, type TomTomMapViewProps, TomTomProvider, TomTomViewController, TomTomViewState, type TomTomViewStateInterface, ZoomAltitudeConverter, useTomTomViewState };
+export { type TomTomConfig, TomTomMapView, TomTomMapView2D, type TomTomMapViewProps, TomTomProvider, TomTomViewController, TomTomViewStateInterface, ZoomAltitudeConverter };
