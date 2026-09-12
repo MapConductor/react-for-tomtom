@@ -1,4 +1,4 @@
-import { createGeoPoint, createMapCameraPosition, computeOffset, type MapCameraPosition } from '@mapconductor/js-sdk-core';
+import { createGeoPoint, createMapCameraPosition, computeOffset, type MapCameraPosition, toNativeHeading, bearingFromNativeHeading, } from '@mapconductor/js-sdk-core';
 import type * as maplibregl from 'maplibre-gl';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 
@@ -36,7 +36,7 @@ export function toCameraPosition(pos: MapCameraPosition): {
             // the way Google does. Reported zoom (toMapCameraPosition) stays
             // fractional and faithful.
             zoom: ZoomAltitudeConverter.googleZoomToTomTomZoom(snapZoomToGoogle(pos.zoom), pos.center.latitude),
-            bearing: pos.bearing,
+            bearing: toNativeHeading(pos.bearing),
             tilt: pos.tilt,
         };
     } else {
@@ -54,14 +54,14 @@ export function toCameraPosition(pos: MapCameraPosition): {
         const target = computeOffset({
             origin: pos.position,
             distance: distanceForward,
-            heading: pos.bearing,
+            heading: toNativeHeading(pos.bearing),
         });
         const adjustedZoom = pos.zoom + NEGATIVE_TILT_ZOOM_OFFSET_AT_MAX_TILT * (tiltAbsDeg / 60);
 
         return {
             center: [target.longitude, target.latitude],
             zoom: ZoomAltitudeConverter.googleZoomToTomTomZoom(adjustedZoom, target.latitude),
-            bearing: pos.bearing,
+            bearing: toNativeHeading(pos.bearing),
             tilt: tiltAbsDeg,
         };
     }
@@ -105,14 +105,14 @@ export function toMapCameraPosition({
         return createMapCameraPosition({
             position: originalPosition,
             zoom: originalGoogleZoom,
-            bearing,
+            bearing: bearingFromNativeHeading(bearing),
             tilt: -pitchAbsDeg,
         });
     }
     return createMapCameraPosition({
         position: createGeoPoint({ latitude: center.lat, longitude: center.lng }),
         zoom: ZoomAltitudeConverter.tomtomZoomToGoogleZoom(zoom, center.lat),
-        bearing,
+        bearing: bearingFromNativeHeading(bearing),
         tilt,
     });
 }
