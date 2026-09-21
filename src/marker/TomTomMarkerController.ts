@@ -70,12 +70,15 @@ function registerTomTomTileProtocol(): void {
     const parsed = parseLocalTileUrl(params.url);
     if (!parsed) return { data: toArrayBuffer(EMPTY_TILE) };
 
-    const result = await LocalTileServer.startServer().handleFetch(parsed.routeId, {
+    // An empty spot comes back as a transparent tile; a render that failed
+    // throws, which the protocol reads as a load to retry. Answering a
+    // failure with a transparent tile would cache a hole instead.
+    const bytes = await LocalTileServer.startServer().fetchTileOrThrow(parsed.routeId, {
       x: parsed.x,
       y: parsed.y,
       z: parsed.z,
     });
-    return { data: toArrayBuffer(result ?? EMPTY_TILE) };
+    return { data: toArrayBuffer(bytes) };
   });
 
   mapLibreTileProtocolRegistered = true;
