@@ -37,7 +37,15 @@ export class ZoomAltitudeConverter extends WebMercatorZoomAltitudeConverter {
     }
 
     static googleZoomToTomTomZoom(googleZoom: number, latitude: number): number {
-        const tomtom = googleZoom - ZoomAltitudeConverter.zoomOffsetAt(latitude);
-        return Math.min(Math.max(tomtom, AbstractZoomAltitudeConverter.MIN_ZOOM_LEVEL), AbstractZoomAltitudeConverter.MAX_ZOOM_LEVEL);
+        // MIN/MAX_ZOOM_LEVEL は Google 系のズーム値。オフセットを引いた *あと* に
+        // 当てると、Google 系の 0 がプロバイダ系の 0 へ潰れて戻ってこない
+        // （読み戻しは +1 されるので 0 を指定したはずが 1 になる）。丸めるのは
+        // 変換の前、値がまだ Google 系でいるあいだ。逆方向は変換してから丸めており、
+        // そちらは元から Google 系どうしで正しい。
+        const clamped = Math.min(
+            Math.max(googleZoom, AbstractZoomAltitudeConverter.MIN_ZOOM_LEVEL),
+            AbstractZoomAltitudeConverter.MAX_ZOOM_LEVEL,
+        );
+        return clamped - ZoomAltitudeConverter.zoomOffsetAt(latitude);
     }
 }
