@@ -9,7 +9,6 @@ import {
   MarkerTileRenderer,
   MarkerTilingOptions,
   RasterLayerSource,
-  Settings,
   type GeoPoint,
   type MarkerEntity,
   type MarkerFingerPrint,
@@ -268,7 +267,8 @@ export class TomTomMarkerController extends AbstractMarkerController<TomTomActua
    * AND the true on-screen icon size/placement, so it stays correct under tilt,
    * rotation and icon scaling (a hand-rolled geo/pixel-box test does not: the
    * icon's native bitmap size and tilt projection make it match far-off markers).
-   * A `tapTolerance` box is queried as a fallback for near-misses on small icons.
+   * A small box the size of the pointer's
+   * hit radius is queried as a fallback for near-misses on small icons.
    * Falls back to the tiled-marker (raster) radius hit-test when nothing regular
    * is hit. Mirrors Android's `GoogleMapMarkerController.find(position, zoom)`.
    */
@@ -300,7 +300,15 @@ export class TomTomMarkerController extends AbstractMarkerController<TomTomActua
       );
       // ...then a small tap-tolerance box for near-misses on small icons.
       if (!hit) {
-        const t = Settings.Default.tapTolerance;
+        // Pointer-appropriate slop, the same radii the icon-rect fallback below
+        // uses. `Settings.Default.tapTolerance` (48) is NOT the right value
+        // here: it is a general map-wide tap slop, and querying a +/-48 CSS px
+        // box around a 48 px icon made the marker answer clicks up to 48 px
+        // outside it — roughly a 144 px square target for a mouse, which is
+        // both wrong and more generous than the fallback that follows. A
+        // finger still gets the wider touch radius.
+        const t =
+          pointerType === 'touch' ? MARKER_HIT_RADIUS_TOUCH_PX : MARKER_HIT_RADIUS_MOUSE_PX;
         hit = topMost(
           map.queryRenderedFeatures(
             [

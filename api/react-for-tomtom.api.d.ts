@@ -175,7 +175,8 @@ declare class TomTomMarkerController extends AbstractMarkerController<TomTomActu
      * AND the true on-screen icon size/placement, so it stays correct under tilt,
      * rotation and icon scaling (a hand-rolled geo/pixel-box test does not: the
      * icon's native bitmap size and tilt projection make it match far-off markers).
-     * A `tapTolerance` box is queried as a fallback for near-misses on small icons.
+     * A small box the size of the pointer's
+     * hit radius is queried as a fallback for near-misses on small icons.
      * Falls back to the tiled-marker (raster) radius hit-test when nothing regular
      * is hit. Mirrors Android's `GoogleMapMarkerController.find(position, zoom)`.
      */
