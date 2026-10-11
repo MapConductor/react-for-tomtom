@@ -225,7 +225,9 @@ function InternalTomTomMapView({
       bridgeUnsubs.current = [];
       provider.destroy();
     };
-  }, [state.mapDesignType.getValue()]);
+    // Design changes are applied live via the controller (see the state's
+    // `mapDesignType` setter), so they must not recreate the map.
+  }, [state.apiKey]);
 
   useMapUISettings(state, controller);
   // マップ生成時 config だけでなく、prop の変化にも追随させる（android-sdk 相当）。

@@ -1,9 +1,9 @@
 import { StyleInput, TomTomMap } from '@tomtom-org/maps-sdk/map';
 import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import * as maplibregl from 'maplibre-gl';
+import { TomTomMapDesignType, TomTomViewStateInterface } from './state.js';
+export { TomTomDesign, TomTomViewState, useTomTomViewState } from './state.js';
 import React from 'react';
-import { TomTomViewStateInterface } from './state.js';
-export { TomTomDesign, TomTomMapDesignType, TomTomViewState, useTomTomViewState } from './state.js';
 
 interface TomTomConfig extends MapConfig {
     /** TomTom API key (mapKey). Passed to `new TomTomMap({ key })`. */
@@ -517,6 +517,8 @@ declare class TomTomViewController extends BaseMapViewController implements MapV
     private initialized;
     private logicalTiltHint;
     private readonly styleReadyRef;
+    /** The SDK wrapper that owns style switching; null when driven headless. */
+    private readonly ttMap;
     readonly holder: TomTomMapViewHolder;
     private readonly markerController;
     private readonly markerEventController;
@@ -527,8 +529,14 @@ declare class TomTomViewController extends BaseMapViewController implements MapV
     private readonly rasterLayerController;
     constructor(holder: TomTomMapViewHolder, markerController: TomTomMarkerController, markerEventController: TomTomMarkerEventController, circleController: TomTomCircleController, polylineController: TomTomPolylineController, polygonController: TomTomPolygonConductor, groundImageController: TomTomGroundImageController, rasterLayerController: TomTomRasterLayerController, styleReadyRef?: {
         current: boolean;
-    }, logicalTiltHint?: number | null);
+    }, logicalTiltHint?: number | null, ttMap?: TomTomMap | null);
     getMap(): maplibregl.Map;
+    /**
+     * Swaps the Orbis style in place through the SDK wrapper (a style id is
+     * only meaningful to it). `styledata` then resyncs every overlay, as for
+     * MapLibre. Called by the view state's `mapDesignType` setter.
+     */
+    setMapDesignType(design: TomTomMapDesignType): void;
     applyUISettings(settings: MapUISettings): void;
     private setupEventListeners;
     setMapInitializedListener(listener: OnMapInitializedHandler | null): void;
@@ -604,4 +612,4 @@ declare class ZoomAltitudeConverter extends WebMercatorZoomAltitudeConverter {
     static googleZoomToTomTomZoom(googleZoom: number, latitude: number): number;
 }
 
-export { type TomTomConfig, TomTomMapView, TomTomMapView2D, type TomTomMapViewProps, TomTomProvider, TomTomViewController, TomTomViewStateInterface, ZoomAltitudeConverter };
+export { type TomTomConfig, TomTomMapDesignType, TomTomMapView, TomTomMapView2D, type TomTomMapViewProps, TomTomProvider, TomTomViewController, TomTomViewStateInterface, ZoomAltitudeConverter };

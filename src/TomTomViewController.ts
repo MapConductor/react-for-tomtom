@@ -23,6 +23,8 @@ import {
   type GeoPoint,
 } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
+import type { TomTomMap } from '@tomtom-org/maps-sdk/map';
+import type { TomTomMapDesignType } from './TomTomDesign';
 import { TomTomMapViewHolder } from './TomTomMapViewHolder';
 import { TomTomMarkerController } from './marker/TomTomMarkerController';
 import { TomTomMarkerEventController } from './marker/TomTomMarkerEventController';
@@ -54,6 +56,8 @@ export class TomTomViewController
   private initialized = false;
   private logicalTiltHint: number | null = null;
   private readonly styleReadyRef: { current: boolean };
+  /** The SDK wrapper that owns style switching; null when driven headless. */
+  private readonly ttMap: TomTomMap | null;
 
   readonly holder: TomTomMapViewHolder;
   private readonly markerController: TomTomMarkerController;
@@ -75,8 +79,10 @@ export class TomTomViewController
     rasterLayerController: TomTomRasterLayerController,
     styleReadyRef: { current: boolean } = { current: true },
     logicalTiltHint: number | null = null,
+    ttMap: TomTomMap | null = null,
   ) {
     super();
+    this.ttMap = ttMap;
     this.mapInstance = holder.map;
     this.initialized = holder.map.loaded();
     this.holder = holder;
@@ -111,6 +117,15 @@ export class TomTomViewController
 
   getMap(): maplibregl.Map {
     return this.mapInstance;
+  }
+
+  /**
+   * Swaps the Orbis style in place through the SDK wrapper (a style id is
+   * only meaningful to it). `styledata` then resyncs every overlay, as for
+   * MapLibre. Called by the view state's `mapDesignType` setter.
+   */
+  setMapDesignType(design: TomTomMapDesignType): void {
+    this.ttMap?.setStyle(design.style);
   }
 
   applyUISettings(settings: MapUISettings): void {

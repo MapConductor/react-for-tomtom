@@ -151,6 +151,7 @@ export class TomTomProvider extends MapProvider {
       rasterLayerController,
       styleReadyRef,
       config.initCameraPosition?.tilt ?? null,
+      ttMap,
     );
     return this.controller;
   }

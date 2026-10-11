@@ -46,6 +46,9 @@ export class TomTomViewState
 
   override set mapDesignType(value: TomTomMapDesignType) {
     this._mapDesignType = value;
+    // Applied live by the controller; the view does not rebuild the map.
+    const controller = this.attachedMapController as { setMapDesignType?: (design: TomTomMapDesignType) => void } | null;
+    controller?.setMapDesignType?.(value);
   }
 
   // Called by TomTomView when controller is initialized
