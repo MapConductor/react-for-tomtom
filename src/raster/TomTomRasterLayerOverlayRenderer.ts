@@ -80,9 +80,11 @@ export class TomTomRasterLayerOverlayRenderer
       sourceId: this.sourceId(state.id),
       layerId: this.layerId(state.id),
     };
-    // 同じ id が復活したら保留削除を取り消す（後から消してしまわないため）
-    this.pendingRemovals = this.pendingRemovals.filter((h) => h.layerId !== handle.layerId);
     if (!this.canEditStyle()) return handle;
+    // Only cancel a deferred removal once we can actually add the layer. Doing
+    // this while the style is unavailable loses a pending source replacement,
+    // so resync() would keep the old source/tiles instead of applying the new one.
+    this.pendingRemovals = this.pendingRemovals.filter((h) => h.layerId !== handle.layerId);
 
     if (!this.holder.map.getSource(handle.sourceId)) {
       this.holder.map.addSource(handle.sourceId, createRasterSource(state.source));
