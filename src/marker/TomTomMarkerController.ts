@@ -15,6 +15,11 @@ import {
   type MarkerFingerPrint,
   type MarkerState,
   type RasterLayerState,
+  markerSearchBounds,
+  pickMarkerHit,
+  preferMarkerHit,
+  type MarkerHit,
+  type GeoPointInterface,
 } from '@mapconductor/js-sdk-core';
 import * as maplibregl from 'maplibre-gl';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
@@ -274,6 +279,9 @@ export class TomTomMarkerController extends AbstractMarkerController<TomTomActua
     zoom: number,
     pointerType: 'touch' | 'mouse',
   ): MarkerEntity<TomTomActualMarker> | null {
+    const tolerance =
+      pointerType === 'touch' ? MARKER_HIT_RADIUS_TOUCH_PX : MARKER_HIT_RADIUS_MOUSE_PX;
+    let regular: MarkerHit<MarkerEntity<TomTomActualMarker>> | null = null;
     const map = this.holder.map;
     const layerId = this.renderer.markerLayer.layerId;
     if (map.getLayer(layerId)) {
@@ -295,56 +303,64 @@ export class TomTomMarkerController extends AbstractMarkerController<TomTomActua
           layers: [layerId],
         }),
       );
+      // 指の下に描かれている通常マーカー。タイル化マーカーより手前に描かれるので、そのまま勝つ。
+      if (hit) return hit;
       // ...then a small tap-tolerance box for near-misses on small icons.
-      if (!hit) {
-        const t = Settings.Default.tapTolerance;
-        hit = topMost(
-          map.queryRenderedFeatures(
-            [
-              [clickScreen.x - t, clickScreen.y - t],
-              [clickScreen.x + t, clickScreen.y + t],
-            ] as unknown as [[number, number], [number, number]],
-            { layers: [layerId] },
-          ),
+      const t = Settings.Default.tapTolerance;
+      hit = topMost(
+        map.queryRenderedFeatures(
+          [
+            [clickScreen.x - t, clickScreen.y - t],
+            [clickScreen.x + t, clickScreen.y + t],
+          ] as unknown as [[number, number], [number, number]],
+          { layers: [layerId] },
+        ),
+      );
+      if (hit) {
+        const markerScreen = this.holder.toScreenOffset(hit.state.position);
+        regular = {
+          item: hit,
+          exact: false,
+          anchorY: markerScreen.y,
+          distance: Math.hypot(clickScreen.x - markerScreen.x, clickScreen.y - markerScreen.y),
+        };
+      } else {
+        // 最後の手段。タップ点の周りの通常マーカーを候補にし、コアの pickMarkerHit で選ぶ
+        // （指の下にアイコンかラベルがあるものを優先し、なければ許容範囲内でアンカーの近いもの）。
+        // android / iOS の find と同じ規則。以前は最近傍の 1 つだけを見ていたので、
+        // 隣のピンの頭や横に置いたラベルを押すと外れていた。
+        const project = (p: GeoPointInterface) => this.holder.toScreenOffset(p as GeoPoint);
+        const bounds = markerSearchBounds(position, clickScreen, project);
+        const candidates = bounds
+          ? this.markerManager.findMarkersInBounds(bounds).filter(entity => entity.marker !== null)
+          : [];
+        regular = pickMarkerHit(
+          clickScreen,
+          candidates,
+          entity => {
+            const bmp = (entity.state.icon ?? createDefaultIcon()).toBitmapIcon();
+            return {
+              anchorScreen: project(entity.state.position),
+              width: bmp.size.width,
+              height: bmp.size.height,
+              anchor: bmp.anchor,
+            };
+          },
+          tolerance,
         );
       }
-      if (!hit) {
-        // アイコン画像サイズを考慮したフォールバック。最近傍の通常マーカーを投影し、
-        // クリックがそのアイコン画像の矩形（size + anchor + 入力別 tolerance）内なら採用する。
-        // queryRenderedFeatures / 固定 tapTolerance box では取りこぼす、大きなアイコン
-        //（幅広ラベルや大きな画像）でも画像全体でヒットさせる（android の find と同じ判定）。
-        const nearest = this.markerManager.findNearest(position);
-        if (nearest && nearest.marker !== null) {
-          const bmp = (nearest.state.icon ?? createDefaultIcon()).toBitmapIcon();
-          const markerScreen = this.holder.toScreenOffset(nearest.state.position);
-          if (markerScreen) {
-            const tol =
-              pointerType === 'touch' ? MARKER_HIT_RADIUS_TOUCH_PX : MARKER_HIT_RADIUS_MOUSE_PX;
-            const dx = clickScreen.x - markerScreen.x;
-            const dy = clickScreen.y - markerScreen.y;
-            const left = -bmp.anchor.x * bmp.size.width - tol;
-            const right = (1 - bmp.anchor.x) * bmp.size.width + tol;
-            const top = -bmp.anchor.y * bmp.size.height - tol;
-            const bottom = (1 - bmp.anchor.y) * bmp.size.height + tol;
-            if (dx >= left && dx <= right && dy >= top && dy <= bottom) {
-              hit = nearest;
-            }
-          }
-        }
-      }
-      if (hit) return hit;
     }
 
-    // No regular-marker hit → tiled-marker (raster) geographic-radius hit-test.
-    const nearest = this.markerManager.findNearest(position);
-    if (nearest?.marker === null) {
-      const hitRadius =
-        pointerType === 'touch' ? MARKER_HIT_RADIUS_TOUCH_PX : MARKER_HIT_RADIUS_MOUSE_PX;
-      const found = this.tileRenderer?.findNearest(position, hitRadius, zoom);
-      return found ? (this.markerManager.getEntity(found.id) ?? null) : null;
-    }
-    return null;
+    // タイル化マーカーも同じ規則で比べる（指の下に描かれていれば、通常マーカーの近接より勝つ）。
+    const tiledHit = this.tileRenderer?.findHit(position, tolerance, zoom) ?? null;
+    const tiledEntity = tiledHit ? this.markerManager.getEntity(tiledHit.item.id) : null;
+    const best = preferMarkerHit<MarkerEntity<TomTomActualMarker>>(
+      regular,
+      tiledHit && tiledEntity ? { ...tiledHit, item: tiledEntity } : null,
+    );
+    return best?.item ?? null;
   }
+
 
   // ── other existing methods ────────────────────────────────────────────────
 
