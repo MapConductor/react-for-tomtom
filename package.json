@@ -26,7 +26,7 @@
     "build": "tsup src/index.ts src/state.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts src/state.ts --format cjs,esm --watch",
     "clean": "rm -rf dist",
-    "test": "echo 'No tests yet'"
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "keywords": [
     "maps",
@@ -39,19 +39,19 @@
   "author": "MapConductor",
   "license": "Apache-2.0",
   "peerDependencies": {
-    "@mapconductor/js-sdk-core": "^0.2.0",
+    "@mapconductor/js-sdk-core": "^0.2.1",
     "react": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "@mapconductor/js-sdk-core": "^0.2.0",
+    "@mapconductor/js-sdk-core": "^0.2.1",
     "@mapconductor/js-sdk-react": "^0.2.1",
-    "@tomtom-org/maps-sdk": "^0.51.5",
+    "@tomtom-org/maps-sdk": "^0.64.0",
     "@turf/turf": "^7.4.0",
     "lodash-es": "^4.18.1",
-    "maplibre-gl": "^6.6.0"
+    "maplibre-gl": "^6.15.0"
   },
   "devDependencies": {
-    "react": "^19.2.8",
+    "react": "^19.3.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }

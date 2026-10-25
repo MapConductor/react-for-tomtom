@@ -1,5 +1,4 @@
 import {
-  createRasterLayerEntity,
   RasterLayerController,
   RasterLayerManager,
   type RasterHeaderSupport,
@@ -32,15 +31,13 @@ export class TomTomRasterLayerController extends RasterLayerController<TomTomRas
 
   async resync(): Promise<void> {
     const states = this.rasterLayerManager.allEntities().map((entity) => entity.state);
-    if (states.length === 0) return;
-    const layers = await this.renderer.onAdd(states.map((state) => ({ state })));
-    layers.forEach((layer, index) => {
-      if (layer != null) {
-        this.rasterLayerManager.registerEntity(
-          createRasterLayerEntity({ layer, state: states[index] }),
-        );
-      }
-    });
+    // Handles use deterministic source/layer IDs, so reapplying a style does not
+    // require re-registering entities. After an await, these snapshots may have
+    // been replaced or removed by composition/update/clear; registering them
+    // again would overwrite newer state or resurrect a removed layer.
+    await this.renderer.onAdd(states.map((state) => ({ state })));
+    // Run even with no entities: clear() may have deferred source removals while
+    // the style was unavailable, and this resync is the first chance to flush.
     await this.renderer.onPostProcess();
   }
 }
