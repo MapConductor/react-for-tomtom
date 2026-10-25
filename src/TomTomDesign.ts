@@ -1,4 +1,4 @@
-import type { AttributionRule, MapDesignTypeInterface } from '@mapconductor/js-sdk-core';
+import { BLANK_MAP_STYLE, type AttributionRule, type MapDesignTypeInterface } from '@mapconductor/js-sdk-core';
 import type { StyleInput } from '@tomtom-org/maps-sdk/map';
 
 export interface TomTomMapDesignType extends MapDesignTypeInterface<string> {
@@ -35,6 +35,8 @@ export class TomTomDesign implements TomTomMapDesignType {
   }
 
   /** Default (browsing) light style. */
+  /** No basemap: a background colour and nothing else. */
+  static readonly None = new TomTomDesign('none', { type: 'custom', json: BLANK_MAP_STYLE });
   static readonly Standard = new TomTomDesign('standard', 'standardLight');
   static readonly StandardLight = new TomTomDesign('standard-light', 'standardLight');
   static readonly StandardDark = new TomTomDesign('standard-dark', 'standardDark');
