@@ -14,6 +14,7 @@ import {
   type MarkerFingerPrint,
   type MarkerState,
   type RasterLayerState,
+  markerHitShape,
   markerSearchBounds,
   pickMarkerHit,
   preferMarkerHit,
@@ -266,14 +267,12 @@ export class TomTomMarkerController extends AbstractMarkerController<TomTomActua
   /**
    * Find the marker under `position` at the given zoom level.
    *
-   * For regular markers this defers to MapLibre's own rendered-geometry query
-   * (`queryRenderedFeatures`), which returns the icons actually painted under the
-   * point in render order — topmost first. That respects the real stacking order
-   * AND the true on-screen icon size/placement, so it stays correct under tilt,
-   * rotation and icon scaling (a hand-rolled geo/pixel-box test does not: the
-   * icon's native bitmap size and tilt projection make it match far-off markers).
-   * A small box the size of the pointer's
-   * hit radius is queried as a fallback for near-misses on small icons.
+   * For regular markers MapLibre's rendered-geometry query
+   * (`queryRenderedFeatures`) says which icons are painted under the point, in
+   * render order — topmost first — and stays right under tilt, rotation and icon
+   * scaling. It answers for the whole bitmap, though, so each answer is checked
+   * against the pin as drawn (`markerHitShape`) before it counts; otherwise the
+   * core rule picks among the markers around the point.
    * Falls back to the tiled-marker (raster) radius hit-test when nothing regular
    * is hit. Mirrors Android's `GoogleMapMarkerController.find(position, zoom)`.
    */
@@ -289,75 +288,34 @@ export class TomTomMarkerController extends AbstractMarkerController<TomTomActua
     const layerId = this.renderer.markerLayer.layerId;
     if (map.getLayer(layerId)) {
       const clickScreen = this.holder.toScreenOffset(position);
-      // MapLibre returns matching symbols topmost-first, so the first regular
-      // marker in the list is the one drawn on top of the stack.
-      const topMost = (features: Array<{ properties?: Record<string, unknown> | null }>) => {
-        for (const feature of features) {
-          const id = feature.properties?.['mc-id'];
-          if (typeof id !== 'string') continue;
-          const entity = this.markerManager.getEntity(id);
-          if (entity && entity.marker !== null) return entity;
-        }
-        return null;
-      };
-      // Exact point first (precise topmost under the cursor)...
-      let hit = topMost(
-        map.queryRenderedFeatures([clickScreen.x, clickScreen.y] as unknown as [number, number], {
-          layers: [layerId],
-        }),
-      );
-      // 指の下に描かれている通常マーカー。タイル化マーカーより手前に描かれるので、そのまま勝つ。
-      if (hit) return hit;
-      // ...then a small tap-tolerance box for near-misses on small icons.
-      // Pointer-appropriate slop, the same radii the icon-rect fallback below
-      // uses. `Settings.Default.tapTolerance` (48) is NOT the right value
-      // here: it is a general map-wide tap slop, and querying a +/-48 CSS px
-      // box around a 48 px icon made the marker answer clicks up to 48 px
-      // outside it — roughly a 144 px square target for a mouse, which is
-      // both wrong and more generous than the fallback that follows. A
-      // finger still gets the wider touch radius.
-      hit = topMost(
-        map.queryRenderedFeatures(
-          [
-            [clickScreen.x - tolerance, clickScreen.y - tolerance],
-            [clickScreen.x + tolerance, clickScreen.y + tolerance],
-          ] as unknown as [[number, number], [number, number]],
-          { layers: [layerId] },
-        ),
-      );
-      if (hit) {
-        const markerScreen = this.holder.toScreenOffset(hit.state.position);
-        regular = {
-          item: hit,
-          exact: false,
-          anchorY: markerScreen.y,
-          distance: Math.hypot(clickScreen.x - markerScreen.x, clickScreen.y - markerScreen.y),
-        };
-      } else {
-        // 最後の手段。タップ点の周りの通常マーカーを候補にし、コアの pickMarkerHit で選ぶ
-        // （指の下にアイコンかラベルがあるものを優先し、なければ許容範囲内でアンカーの近いもの）。
-        // android / iOS の find と同じ規則。以前は最近傍の 1 つだけを見ていたので、
-        // 隣のピンの頭や横に置いたラベルを押すと外れていた。
-        const project = (p: GeoPointInterface) => this.holder.toScreenOffset(p as GeoPoint);
-        const bounds = markerSearchBounds(position, clickScreen, project);
-        const candidates = bounds
-          ? this.markerManager.findMarkersInBounds(bounds).filter(entity => entity.marker !== null)
-          : [];
-        regular = pickMarkerHit(
-          clickScreen,
-          candidates,
-          entity => {
-            const bmp = (entity.state.icon ?? createDefaultIcon()).toBitmapIcon();
-            return {
-              anchorScreen: project(entity.state.position),
-              width: bmp.size.width,
-              height: bmp.size.height,
-              anchor: bmp.anchor,
-            };
-          },
-          tolerance,
-        );
+      const project = (p: GeoPointInterface) => this.holder.toScreenOffset(p as GeoPoint);
+      // The pin as drawn, not its square bitmap: MapLibre answers for the whole
+      // bitmap, which reaches 8 px either side of a default pin.
+      const rectOf = (entity: MarkerEntity<TomTomActualMarker>) => ({
+        anchorScreen: project(entity.state.position),
+        ...markerHitShape((entity.state.icon ?? createDefaultIcon()).toBitmapIcon()),
+      });
+      // Under the pointer, topmost first (MapLibre returns matching symbols in
+      // render order): the first whose drawn pin contains the point wins outright.
+      // Features are read structurally (only `properties['mc-id']` is needed).
+      const under = (map.queryRenderedFeatures([clickScreen.x, clickScreen.y] as unknown as [number, number], {
+        layers: [layerId],
+      }) as readonly unknown[])
+        .map(feature => (feature as { properties?: Record<string, unknown> | null }).properties?.['mc-id'])
+        .map(id => (typeof id === 'string' ? this.markerManager.getEntity(id) : undefined))
+        .filter((entity): entity is MarkerEntity<TomTomActualMarker> => !!entity && entity.marker !== null);
+      for (const entity of under) {
+        // 指の下に描かれている通常マーカー。タイル化マーカーより手前に描かれるので、そのまま勝つ。
+        if (pickMarkerHit(clickScreen, [entity], rectOf, 0)) return entity;
       }
+      // Otherwise the core rule over the markers around the point: a drawn pin
+      // or label under it, else the nearest within the pointer's slop (none for
+      // a mouse, MARKER_HIT_RADIUS_TOUCH_PX for a finger). android / iOS の find と同じ規則。
+      const bounds = markerSearchBounds(position, clickScreen, project);
+      const candidates = bounds
+        ? this.markerManager.findMarkersInBounds(bounds).filter(entity => entity.marker !== null)
+        : [];
+      regular = pickMarkerHit(clickScreen, candidates, rectOf, tolerance);
     }
 
     // タイル化マーカーも同じ規則で比べる（指の下に描かれていれば、通常マーカーの近接より勝つ）。
