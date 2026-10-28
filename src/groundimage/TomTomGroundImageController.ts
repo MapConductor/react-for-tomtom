@@ -56,6 +56,7 @@ export class TomTomGroundImageController implements SlottedOverlayController {
   dispatchClick(point: GeoPoint): boolean {
     const states = Array.from(this.groundImageStates.values()).reverse();
     for (const state of states) {
+      if (!state.clickable) continue;
       if (!state.bounds.contains(point)) continue;
       if (!state.onClick) return false;
       // clicked を正規化してから配送する。理由は core の GroundImageController.dispatchClick を参照。
