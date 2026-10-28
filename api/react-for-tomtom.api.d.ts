@@ -610,4 +610,5 @@ declare class ZoomAltitudeConverter extends WebMercatorZoomAltitudeConverter {
     static googleZoomToTomTomZoom(googleZoom: number, latitude: number): number;
 }
 
-export { type TomTomConfig, TomTomMapDesignType, TomTomMapView, TomTomMapView2D, type TomTomMapViewProps, TomTomProvider, TomTomViewController, TomTomViewStateInterface, ZoomAltitudeConverter };
+export { TomTomMapDesignType, TomTomMapView, TomTomMapView2D, TomTomProvider, TomTomViewController, TomTomViewStateInterface, ZoomAltitudeConverter };
+export type { TomTomConfig, TomTomMapViewProps };
