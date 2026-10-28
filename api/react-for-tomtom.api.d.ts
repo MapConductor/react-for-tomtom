@@ -169,14 +169,12 @@ declare class TomTomMarkerController extends AbstractMarkerController<TomTomActu
     /**
      * Find the marker under `position` at the given zoom level.
      *
-     * For regular markers this defers to MapLibre's own rendered-geometry query
-     * (`queryRenderedFeatures`), which returns the icons actually painted under the
-     * point in render order — topmost first. That respects the real stacking order
-     * AND the true on-screen icon size/placement, so it stays correct under tilt,
-     * rotation and icon scaling (a hand-rolled geo/pixel-box test does not: the
-     * icon's native bitmap size and tilt projection make it match far-off markers).
-     * A small box the size of the pointer's
-     * hit radius is queried as a fallback for near-misses on small icons.
+     * For regular markers MapLibre's rendered-geometry query
+     * (`queryRenderedFeatures`) says which icons are painted under the point, in
+     * render order — topmost first — and stays right under tilt, rotation and icon
+     * scaling. It answers for the whole bitmap, though, so each answer is checked
+     * against the pin as drawn (`markerHitShape`) before it counts; otherwise the
+     * core rule picks among the markers around the point.
      * Falls back to the tiled-marker (raster) radius hit-test when nothing regular
      * is hit. Mirrors Android's `GoogleMapMarkerController.find(position, zoom)`.
      */
