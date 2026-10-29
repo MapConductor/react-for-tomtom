@@ -25,9 +25,10 @@ const { TomTomRasterLayerOverlayRenderer } = await import(pathToFileURL(resolve(
 const sourceId = 'mc-raster-src-mc-marker-tiles';
 const layerId = 'mc-raster-lyr-mc-marker-tiles';
 
-function state(version) {
+function state(version, opacity = 1) {
     return createRasterLayerState({
         id: 'mc-marker-tiles',
+        opacity,
         source: RasterLayerSource.UrlTemplate({
             template: `/__tiles/markers/256/${version}/{z}/{x}/{y}.png`,
             tileSize: 256,
@@ -73,7 +74,10 @@ function fixture() {
     return {
         map, renderer, controller,
         setReady(value) { ready = value; },
+        // A style reload drops every source and layer the SDK added.
+        reloadStyle() { ready = false; sources.clear(); layers.clear(); },
         template: () => sources.get(sourceId)?.tiles[0],
+        opacity: () => layers.get(layerId)?.paint['raster-opacity'],
         current: () => controller.rasterLayerManager.getEntity('mc-marker-tiles')?.state,
     };
 }
@@ -160,9 +164,10 @@ for (const method of ['composition', 'update']) {
         await f.controller.composition([state('circle')]);
         const resync = await pauseResync(f);
         const numbered = state('numbered');
-        await f.controller[method](method === 'composition' ? [numbered] : numbered);
+        const change = f.controller[method](method === 'composition' ? [numbered] : numbered);
         resync.release();
         await resync.pending;
+        await change;
         assert.equal(f.current(), numbered);
         assert.equal(f.template(), numbered.source.template);
     });
@@ -172,9 +177,10 @@ test('resync cannot resurrect a layer removed by clear', async () => {
     const f = fixture();
     await f.controller.composition([state('circle')]);
     const resync = await pauseResync(f);
-    await f.controller.clear();
+    const clearing = f.controller.clear();
     resync.release();
     await resync.pending;
+    await clearing;
     assert.equal(f.current(), undefined);
     assert.equal(f.map.getSource(sourceId), undefined);
     assert.equal(f.map.getLayer(layerId), undefined);
@@ -192,3 +198,48 @@ test('resync flushes deferred removals even when the manager is empty', async ()
     assert.equal(f.map.getSource(sourceId), undefined);
     assert.equal(f.map.getLayer(layerId), undefined);
 });
+
+// The opposite order to pauseResync(): a style event starts resync() while a
+// change is between renderer.onChange() and registerEntity(). TomTom runs on
+// maplibre-gl, which fires `styledata` synchronously from map.addImage()
+// (Style#_afterImageUpdated), so a microtask that adds a marker image can land
+// there.
+function inChangeWindow(f, onWindow) {
+    const onChange = f.renderer.onChange.bind(f.renderer);
+    let pending = Promise.resolve();
+    f.renderer.onChange = async (data) => {
+        const handles = await onChange(data);
+        queueMicrotask(() => { pending = onWindow(); });
+        f.renderer.onChange = onChange;
+        return handles;
+    };
+    return () => pending;
+}
+
+for (const method of ['composition', 'update']) {
+    test(`style ready during a deferred ${method} keeps the new source`, async () => {
+        const f = fixture();
+        await f.controller.composition([state('circle')]);
+        f.reloadStyle();
+        const resynced = inChangeWindow(f, () => {
+            f.setReady(true);
+            return f.controller.resync();
+        });
+        const numbered = state('numbered');
+        await f.controller[method](method === 'composition' ? [numbered] : numbered);
+        await resynced();
+        assert.equal(f.current(), numbered);
+        assert.equal(f.template(), numbered.source.template);
+    });
+
+    test(`resync during an opacity ${method} keeps the new opacity`, async () => {
+        const f = fixture();
+        await f.controller.composition([state('circle', 1)]);
+        const resynced = inChangeWindow(f, () => f.controller.resync());
+        const faded = state('circle', 0.5);
+        await f.controller[method](method === 'composition' ? [faded] : faded);
+        await resynced();
+        assert.equal(f.current(), faded);
+        assert.equal(f.opacity(), 0.5);
+    });
+}
