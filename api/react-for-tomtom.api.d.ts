@@ -154,6 +154,8 @@ declare class TomTomMarkerController extends AbstractMarkerController<TomTomActu
     private tileRenderer;
     private tileRouteId;
     private tileVersion;
+    /** Device pixels per CSS pixel the current tiles are drawn at. */
+    private tilePixelRatio;
     private tileGeneration;
     /** Called by TomTomViewController when RasterLayerState changes. */
     onRasterLayerUpdate: ((state: RasterLayerState | null) => Promise<void>) | null;
