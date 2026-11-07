@@ -2,6 +2,7 @@ import { createGeoPoint, createOverlayHit, type GeoPointInterface, type OverlayH
 import type { OverlayKind, SlottedOverlayController } from '@mapconductor/js-sdk-core';
 import {
   createPolygonEntity,
+  notifyOverlaysAdded,
   type GeoPoint,
   type OnPolygonEventHandler,
   type PolygonState,
@@ -33,7 +34,12 @@ export class TomTomPolygonConductor implements SlottedOverlayController {
   composition(data: PolygonState[]): Promise<void> {
     return this.enqueue(async () => {
       const nextIds = new Set(data.map((state) => state.id));
+      // On the map before this composition, natively or in tiles. Moving
+      // between the two is not an add; only the rest get onAdded.
+      const onMapBefore = new Set<string>();
+      const nowOnMap: PolygonState[] = [];
       for (const entity of this.polygonOverlay.polygonManager.allEntities()) {
+        onMapBefore.add(entity.state.id);
         if (!nextIds.has(entity.state.id)) {
           this.polygonOverlay.polygonManager.removeEntity(entity.state.id);
         }
@@ -43,15 +49,19 @@ export class TomTomPolygonConductor implements SlottedOverlayController {
       for (const state of data) {
         if (tiled?.has(state.id)) {
           this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon: IN_TILES, state }));
+          if (!onMapBefore.has(state.id)) nowOnMap.push(state);
           continue;
         }
         const polygon = await this.polygonOverlay.createPolygon(state);
         if (polygon) {
           this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon, state }));
+          if (!onMapBefore.has(state.id)) nowOnMap.push(state);
         }
       }
 
       await this.redraw();
+      // The tiles' template and the GeoJSON layer are on the map now.
+      notifyOverlaysAdded(nowOnMap);
     });
   }
 
