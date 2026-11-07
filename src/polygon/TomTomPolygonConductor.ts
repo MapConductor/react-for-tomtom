@@ -5,13 +5,24 @@ import {
   type GeoPoint,
   type OnPolygonEventHandler,
   type PolygonState,
+  type PolygonTiler,
   wrapClickedPoint,
 } from '@mapconductor/js-sdk-core';
+import type { TomTomActualPolygon } from './TomTomPolygonLayer';
 import { TomTomPolygonOverlayRenderer } from './TomTomPolygonOverlayRenderer';
+
+/** What a tiled polygon hands the GeoJSON layer: nothing. It is in the tiles. */
+const IN_TILES: TomTomActualPolygon = { fillFeatures: [], outlineFeatures: [] };
 
 export class TomTomPolygonConductor implements SlottedOverlayController {
   readonly polygonOverlay: TomTomPolygonOverlayRenderer;
   clickListener: OnPolygonEventHandler | null = null;
+  /**
+   * Set by the view controller to draw many polygons as tiles (see
+   * PolygonTiler). Tiled polygons stay in the manager, for taps, and give the
+   * GeoJSON layer nothing.
+   */
+  tiler: PolygonTiler | null = null;
 
   private operation = Promise.resolve();
 
@@ -28,7 +39,12 @@ export class TomTomPolygonConductor implements SlottedOverlayController {
         }
       }
 
+      const tiled = this.tiler ? await this.tiler.route(data) : null;
       for (const state of data) {
+        if (tiled?.has(state.id)) {
+          this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon: IN_TILES, state }));
+          continue;
+        }
         const polygon = await this.polygonOverlay.createPolygon(state);
         if (polygon) {
           this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon, state }));
@@ -41,6 +57,11 @@ export class TomTomPolygonConductor implements SlottedOverlayController {
 
   update(state: PolygonState): Promise<void> {
     return this.enqueue(async () => {
+      if (this.tiler?.isTiled(state.id)) {
+        this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon: IN_TILES, state }));
+        this.tiler.update(state);
+        return;
+      }
       const polygon = await this.polygonOverlay.createPolygon(state);
       if (polygon) {
         this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon, state }));
@@ -59,6 +80,7 @@ export class TomTomPolygonConductor implements SlottedOverlayController {
 
   clear(): Promise<void> {
     return this.enqueue(async () => {
+      await this.tiler?.clear();
       this.polygonOverlay.polygonManager.clear();
       await this.redraw();
     });
