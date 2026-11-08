@@ -6,6 +6,7 @@ import {
   type OnPolygonEventHandler,
   type PolygonState,
   type PolygonTiler,
+  PolygonTileSet,
   wrapClickedPoint,
 } from '@mapconductor/js-sdk-core';
 import type { TomTomActualPolygon } from './TomTomPolygonLayer';
@@ -58,9 +59,15 @@ export class TomTomPolygonConductor implements SlottedOverlayController {
   update(state: PolygonState): Promise<void> {
     return this.enqueue(async () => {
       if (this.tiler?.isTiled(state.id)) {
-        this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon: IN_TILES, state }));
-        this.tiler.update(state);
-        return;
+        if (PolygonTileSet.canTile(state)) {
+          this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon: IN_TILES, state }));
+          this.tiler.update(state);
+          return;
+        }
+        // No longer drawable in a tile (geodesic, half the world wide, or under
+        // 3 points): the GeoJSON layer draws it from now on. Still on the map,
+        // so this is not an add.
+        this.tiler.remove(state.id);
       }
       const polygon = await this.polygonOverlay.createPolygon(state);
       if (polygon) {
