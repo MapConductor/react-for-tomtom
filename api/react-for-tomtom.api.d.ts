@@ -479,6 +479,19 @@ declare class TomTomRasterLayerOverlayRenderer implements RasterLayerOverlayRend
     onCameraChanged(_mapCameraPosition: MapCameraPosition): Promise<void>;
     onPostProcess(): Promise<void>;
     private addLayer;
+    /**
+     * The style's first label layer, so a raster overlay can go under it.
+     *
+     * Appended at the top of the style instead, a raster overlay covers the
+     * place names, road names and shields the style draws -- a vector tile
+     * layer's own roads run straight through them, which is what "the labels
+     * are under the lines" looks like. Every raster overlay has the same
+     * problem, so the rule lives here rather than in each of them.
+     *
+     * Our own layers are skipped: markers are a symbol layer too, and anchoring
+     * to them would put the raster back above the labels.
+     */
+    private firstBasemapLabelLayerId;
     private updateLayer;
     /**
      * スタイル再読込中に頼まれた削除の保留分。
