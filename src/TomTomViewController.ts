@@ -30,7 +30,7 @@ import { TomTomMarkerController } from './marker/TomTomMarkerController';
 import { TomTomMarkerEventController } from './marker/TomTomMarkerEventController';
 import { TomTomCircleController } from './circle/TomTomCircleController';
 import { TomTomPolylineController } from './polyline/TomTomPolylineController';
-import { TomTomPolygonConductor } from './polygon/TomTomPolygonConductor';
+import { TomTomPolygonController } from './polygon/TomTomPolygonController';
 import { TomTomGroundImageController } from './groundimage/TomTomGroundImageController';
 import { TomTomRasterLayerController } from './raster/TomTomRasterLayerController';
 import { installMapEventListeners } from './TomTomViewControllerEvents';
@@ -64,7 +64,7 @@ export class TomTomViewController
   private readonly markerEventController: TomTomMarkerEventController;
   private readonly circleController: TomTomCircleController;
   private readonly polylineController: TomTomPolylineController;
-  private readonly polygonController: TomTomPolygonConductor;
+  private readonly polygonController: TomTomPolygonController;
   private readonly groundImageController: TomTomGroundImageController;
   private readonly rasterLayerController: TomTomRasterLayerController;
 
@@ -74,7 +74,7 @@ export class TomTomViewController
     markerEventController: TomTomMarkerEventController,
     circleController: TomTomCircleController,
     polylineController: TomTomPolylineController,
-    polygonController: TomTomPolygonConductor,
+    polygonController: TomTomPolygonController,
     groundImageController: TomTomGroundImageController,
     rasterLayerController: TomTomRasterLayerController,
     styleReadyRef: { current: boolean } = { current: true },
