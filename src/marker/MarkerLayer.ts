@@ -4,7 +4,7 @@ import type {
   LayerSpecification,
 } from 'maplibre-gl';
 import type { MarkerEntity } from '@mapconductor/js-sdk-core';
-import { bringMarkerLayersToFront, type FeatureCollection, type PointFeature } from '../helpers';
+import { bringMarkerLayersToFront, setSourceFeatures, type FeatureCollection, type PointFeature } from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 export type TomTomActualMarker = PointFeature;
@@ -93,7 +93,7 @@ export class MarkerLayer {
     try {
       const source = this.holder.map.getSource(this.sourceId) as GeoJSONSource | undefined;
       if (!source) return false;
-      source.setData(data);
+      setSourceFeatures(source, data.features);
       return true;
     } catch {
       return false;

@@ -3,7 +3,7 @@ import type {
   LayerSpecification,
 } from 'maplibre-gl';
 import { type CircleEntity } from '@mapconductor/js-sdk-core';
-import { bringMarkerLayersToFront, type FeatureCollection, type PolygonFeature } from '../helpers';
+import { bringMarkerLayersToFront, setSourceFeatures, type FeatureCollection, type PolygonFeature } from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 export type TomTomActualCircle = PolygonFeature & { id?: string | number };
@@ -51,7 +51,7 @@ export class TomTomCircleLayer {
     try {
       const source = this.holder.map.getSource(this.sourceId) as GeoJSONSource | undefined;
       if (!source) return false;
-      source.setData(data);
+      setSourceFeatures(source, data.features);
       return true;
     } catch {
       return false;
