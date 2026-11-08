@@ -415,6 +415,12 @@ declare class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverla
     /** Sync an already-created image source+layer to the current state (diffed). */
     private applyToExisting;
     removeGroundImage(entity: GroundImageEntity<string>): Promise<void>;
+    /**
+     * Under the polygons, circles, polylines and markers, above the rasters, whatever order the
+     * overlays were added in. Ground images have no zIndex; among themselves they keep the order
+     * they were handed over in.
+     */
+    private groundImageBeforeId;
     private removeFromStyle;
 }
 
@@ -470,6 +476,13 @@ declare class TomTomRasterLayerOverlayRenderer implements RasterLayerOverlayRend
     onCameraChanged(_mapCameraPosition: MapCameraPosition): Promise<void>;
     onPostProcess(): Promise<void>;
     private addLayer;
+    /** This raster's place in the overlay stack: the lowest band, ordered by zIndex. */
+    private stackKey;
+    /**
+     * Under every other overlay (the raster band is the lowest), and under the basemap's labels,
+     * whichever comes first. Marker tiles are drawn as a raster but belong with the markers.
+     */
+    private beforeId;
     /**
      * The style's first label layer, so a raster overlay can go under it.
      *

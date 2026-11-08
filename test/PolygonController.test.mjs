@@ -38,6 +38,8 @@ function fixture({ existingLayers = [] } = {}) {
     const map = {
         getSource: (id) => sources.get(id),
         getLayer: (id) => order.find((layer) => layer.id === id),
+        // The real map's layer order: the stacking (overlayStackBeforeId) reads it to place new layers.
+        getLayersOrder: () => order.map((layer) => layer.id),
         addSource(id, spec) {
             assert.ok(ready, 'cannot add a source while the style is unavailable');
             const source = { spec, data: spec.data, setData(data) { this.data = data; } };

@@ -3,7 +3,7 @@ import type {
   LayerSpecification,
 } from 'maplibre-gl';
 import { type CircleEntity } from '@mapconductor/js-sdk-core';
-import { bringMarkerLayersToFront, setSourceFeatures, type FeatureCollection, type PolygonFeature } from '../helpers';
+import { bringMarkerLayersToFront, setSourceFeatures, type FeatureCollection, type PolygonFeature, overlayLayerBeforeId, overlayStackKeyOf } from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 export type TomTomActualCircle = PolygonFeature & { id?: string | number };
@@ -73,14 +73,8 @@ export class TomTomCircleLayer {
           data: { type: 'FeatureCollection', features: [] },
         });
       }
-      const beforeId = map.getLayer('polygon-fill-layer')
-        ? 'polygon-fill-layer'
-        : map.getLayer('polyline-layer')
-          ? 'polyline-layer'
-          : map.getLayer('mc-marker-layer')
-            ? 'mc-marker-layer'
-            : undefined;
       if (!map.getLayer(this.layerId)) {
+        const beforeId = overlayLayerBeforeId(map, overlayStackKeyOf(map, this.layerId) ?? { kind: 'circle', sub: 0 });
         map.addLayer(
           {
             id: this.layerId,
@@ -97,8 +91,7 @@ export class TomTomCircleLayer {
         );
       }
       if (!map.getLayer(this.strokeLayerId)) {
-        // Added with the same beforeId after the fill layer, so it renders
-        // directly above the fill layer.
+        const beforeId = overlayLayerBeforeId(map, overlayStackKeyOf(map, this.strokeLayerId) ?? { kind: 'circle', sub: 1 });
         map.addLayer(
           {
             id: this.strokeLayerId,

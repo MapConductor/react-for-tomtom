@@ -4,7 +4,15 @@ import {
   type GroundImageEntity,
   type GroundImageState,
 } from '@mapconductor/js-sdk-core';
-import { bringMarkerLayersToFront, groundImageCoordinates, removeLayerIfExists, removeSourceIfExists } from '../helpers';
+import {
+  bringMarkerLayersToFront,
+  forgetOverlayStackKey,
+  groundImageCoordinates,
+  overlayLayerBeforeId,
+  rememberOverlayStackKey,
+  removeLayerIfExists,
+  removeSourceIfExists,
+} from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 type Coordinates = ReturnType<typeof groundImageCoordinates>;
@@ -66,7 +74,7 @@ export class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverlay
           type: 'raster',
           source: sourceId,
           paint: { 'raster-opacity': state.opacity },
-        } as LayerSpecification);
+        } as LayerSpecification, this.groundImageBeforeId(layerId));
       }
       bringMarkerLayersToFront(this.holder.map);
       this.applied.set(state.id, {
@@ -88,7 +96,7 @@ export class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverlay
         type: 'raster',
         source: sourceId,
         paint: { 'raster-opacity': state.opacity },
-      } as LayerSpecification);
+      } as LayerSpecification, this.groundImageBeforeId(layerId));
     }
     this.applyToExisting(state, source, layerId, coordinates);
     bringMarkerLayersToFront(this.holder.map);
@@ -167,7 +175,17 @@ export class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverlay
     this.pendingRemovals.clear();
   }
 
+  /**
+   * Under the polygons, circles, polylines and markers, above the rasters, whatever order the
+   * overlays were added in. Ground images have no zIndex; among themselves they keep the order
+   * they were handed over in.
+   */
+  private groundImageBeforeId(layerId: string): string | undefined {
+    return overlayLayerBeforeId(this.holder.map, rememberOverlayStackKey(this.holder.map, layerId, 'groundImage'));
+  }
+
   private removeFromStyle(id: string): void {
+    forgetOverlayStackKey(this.holder.map, this.layerId(id));
     removeLayerIfExists(this.holder.map, this.layerId(id));
     removeSourceIfExists(this.holder.map, this.sourceId(id));
   }

@@ -1,6 +1,6 @@
 import type * as maplibregl from 'maplibre-gl';
 import type { SourceSpecification } from 'maplibre-gl';
-import { createGeoPoint, TileScheme, type GeoPoint, type GroundImageState, type PolygonState, RasterLayerSource } from '@mapconductor/js-sdk-core';
+import { createGeoPoint, TileScheme, type GeoPoint, type GroundImageState, type PolygonState, RasterLayerSource, overlayStackBeforeId, type OverlayKind, type OverlayStackKey } from '@mapconductor/js-sdk-core';
 
 export type Coordinate = [number, number];
 export type GeoJSONSourceData = Parameters<maplibregl.GeoJSONSource['setData']>[0];
@@ -91,6 +91,88 @@ export function bringMarkerLayersToFront(map: maplibregl.Map): void {
   }
   const arranged = currentLayerOrder(map);
   if (arranged) arrangedOrders.set(map, arranged.join('\n'));
+}
+
+// ── Overlay stacking ───────────────────────────────────────────────────────
+//
+// Bottom to top, on every provider: raster < ground image < polygon < circle < polyline <
+// marker (js-sdk-core OVERLAY_STACK_ORDER). Every layer this SDK adds goes in with the
+// beforeId from overlayLayerBeforeId(), so the order does not depend on the order things were
+// added, re-sent after clearOverlays(), or put back after a style swap. It used to: polygons
+// went in "before the polyline layer", circles "before the polygon fill" (under polygons),
+// ground images and polylines at the top, so a ground image re-sent after the polygons covered
+// them, and a raster added after clearOverlays() could cover everything.
+
+export const MARKER_TILES_LAYER_ID = 'mc-raster-lyr-mc-marker-tiles';
+
+/** Layers with a fixed place: one per kind, holding every overlay of that kind. */
+const FIXED_STACK_KEYS: Record<string, OverlayStackKey> = {
+  'polygon-fill-layer': { kind: 'polygon', sub: 0 },
+  'polygon-outline-layer': { kind: 'polygon', sub: 1 },
+  'circle-layer': { kind: 'circle', sub: 0 },
+  'circle-layer-stroke': { kind: 'circle', sub: 1 },
+  'polyline-layer': { kind: 'polyline' },
+  [MARKER_TILES_LAYER_ID]: { kind: 'marker', sub: 0 },
+  'mc-marker-layer': { kind: 'marker', sub: 1 },
+  'mc-marker-drag-layer': { kind: 'marker', sub: 2 },
+};
+
+// Layers holding one overlay each (rasters, ground images), per map: their zIndex and the
+// order they were handed over in.
+const itemStackKeys = new WeakMap<object, Map<string, OverlayStackKey>>();
+const itemSequences = new WeakMap<object, number>();
+
+/** Where a layer of ours belongs in the stack; null for the style's own layers. */
+export function overlayStackKeyOf(map: object, layerId: string): OverlayStackKey | null {
+  const fixed = FIXED_STACK_KEYS[layerId];
+  if (fixed) return fixed;
+  const item = itemStackKeys.get(map)?.get(layerId);
+  if (item) return item;
+  if (layerId.startsWith('mc-raster-lyr-')) return { kind: 'rasterLayer' };
+  if (layerId.startsWith('mc-gimg-lyr-')) return { kind: 'groundImage' };
+  return null;
+}
+
+/**
+ * Records the key of a layer that holds one overlay. A layer re-created for the same overlay
+ * (a raster whose source changed, a style swap) keeps the place it had among equal zIndexes.
+ */
+export function rememberOverlayStackKey(map: object, layerId: string, kind: OverlayKind, zIndex = 0): OverlayStackKey {
+  let keys = itemStackKeys.get(map);
+  if (!keys) {
+    keys = new Map();
+    itemStackKeys.set(map, keys);
+  }
+  let sequence = keys.get(layerId)?.sequence;
+  if (sequence == null) {
+    sequence = (itemSequences.get(map) ?? 0) + 1;
+    itemSequences.set(map, sequence);
+  }
+  const key: OverlayStackKey = { kind, zIndex, sequence };
+  keys.set(layerId, key);
+  return key;
+}
+
+/** The overlay is gone (not just its layer): a later one with the same id starts over. */
+export function forgetOverlayStackKey(map: object, layerId: string): void {
+  itemStackKeys.get(map)?.delete(layerId);
+}
+
+/** The beforeId that puts a new layer with this key in its place in the stack. */
+export function overlayLayerBeforeId(map: maplibregl.Map, key: OverlayStackKey): string | undefined {
+  return overlayStackBeforeId(currentLayerOrder(map) ?? [], (id) => overlayStackKeyOf(map, id), key);
+}
+
+/** Moves an existing layer of ours to its place (after its zIndex changed). */
+export function moveLayerToStackPlace(map: maplibregl.Map, layerId: string, key: OverlayStackKey): void {
+  const order = currentLayerOrder(map);
+  if (!order || !order.includes(layerId)) return;
+  const rest = order.filter((id) => id !== layerId);
+  const beforeId = overlayStackBeforeId(rest, (id) => overlayStackKeyOf(map, id), key);
+  const at = order.indexOf(layerId);
+  const next = order[at + 1];
+  if (next === beforeId) return; // already there: moveLayer would fire styledata for nothing
+  map.moveLayer(layerId, beforeId);
 }
 
 // What each GeoJSON source was last given, keyed by the source object itself. A style swap
