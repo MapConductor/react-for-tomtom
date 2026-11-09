@@ -10,6 +10,7 @@ import {
     createGroundImageState,
     createRasterLayerState,
     RasterLayerSource,
+    polygonTileRasterLayerState,
 } from '@mapconductor/js-sdk-core';
 
 // The overlay stack, bottom to top, on every provider: raster < ground image < polygon <
@@ -184,4 +185,29 @@ test('rasters keep their zIndex order among themselves, under everything else', 
     const order = map.order();
     const ids = ['mc-raster-lyr-low', 'mc-raster-lyr-mid', 'mc-raster-lyr-high', 'polygon-fill-layer'];
     assert.deepEqual(order.filter((id) => ids.includes(id)), ids);
+});
+
+test('the polygon tiles go with the polygons: over the ground images, under the GeoJSON polygons', async () => {
+    // The polygon tiles are mounted through the raster renderer (polygonTileRasterLayerState),
+    // but are polygons: they used to land in the raster band, under the ground images.
+    const tiles = polygonTileRasterLayerState('http://127.0.0.1/polygons-x/{z}/{x}/{y}.png?v=1');
+    const want = [
+        'mc-raster-lyr-RL',
+        'place-label',
+        'mc-gimg-lyr-GI',
+        'mc-raster-lyr-mc-polygon-tiles',
+        'polygon-fill-layer',
+        'polygon-outline-layer',
+        'circle-layer',
+        'polyline-layer',
+    ];
+    for (const perm of permutations([...KINDS, 'tiles'])) {
+        const map = glMap();
+        const o = overlays(map);
+        for (const kind of perm) {
+            if (kind === 'tiles') await o.rasterRenderer.onAdd([{ state: tiles }]);
+            else await o[kind]();
+        }
+        assert.deepEqual(map.order().filter((id) => want.includes(id)), want, perm.join(' → '));
+    }
 });
