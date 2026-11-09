@@ -104,9 +104,15 @@ export function bringMarkerLayersToFront(map: maplibregl.Map): void {
 // them, and a raster added after clearOverlays() could cover everything.
 
 export const MARKER_TILES_LAYER_ID = 'mc-raster-lyr-mc-marker-tiles';
+/**
+ * The raster layer of the SDK's polygon tiles (js-sdk-core POLYGON_TILE_LAYER_ID). It is in the
+ * polygon band, under the polygons drawn as GeoJSON (geodesic ones), which stay on top.
+ */
+export const POLYGON_TILES_LAYER_ID = 'mc-raster-lyr-mc-polygon-tiles';
 
 /** Layers with a fixed place: one per kind, holding every overlay of that kind. */
 const FIXED_STACK_KEYS: Record<string, OverlayStackKey> = {
+  [POLYGON_TILES_LAYER_ID]: { kind: 'polygon', sub: -1 },
   'polygon-fill-layer': { kind: 'polygon', sub: 0 },
   'polygon-outline-layer': { kind: 'polygon', sub: 1 },
   'circle-layer': { kind: 'circle', sub: 0 },

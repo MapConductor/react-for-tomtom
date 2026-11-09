@@ -54,14 +54,15 @@ export class TomTomPolygonLayer {
   draw(entities: PolygonEntity<TomTomActualPolygon>[]): boolean {
     if (!this.ensureStyleResources()) return false;
 
+    // A tiled polygon (core PolygonController.tiler) is kept for taps with no GeoJSON: polygon is null.
     const ordered = [...entities].sort((a, b) => a.state.zIndex - b.state.zIndex);
     const fillData: FeatureCollection = {
       type: 'FeatureCollection',
-      features: ordered.flatMap((entity) => entity.polygon.fillFeatures),
+      features: ordered.flatMap((entity) => entity.polygon?.fillFeatures ?? []),
     };
     const outlineData: FeatureCollection = {
       type: 'FeatureCollection',
-      features: ordered.flatMap((entity) => entity.polygon.outlineFeatures),
+      features: ordered.flatMap((entity) => entity.polygon?.outlineFeatures ?? []),
     };
 
     try {

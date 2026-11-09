@@ -480,7 +480,9 @@ declare class TomTomRasterLayerOverlayRenderer implements RasterLayerOverlayRend
     private stackKey;
     /**
      * Under every other overlay (the raster band is the lowest), and under the basemap's labels,
-     * whichever comes first. Marker tiles are drawn as a raster but belong with the markers.
+     * whichever comes first. Marker tiles and polygon tiles are drawn as a raster but belong with
+     * the markers and the polygons, and are not imagery: they do not go under the labels either
+     * (under the first label the polygon tiles can end up beneath the style's opaque fills).
      */
     private beforeId;
     /**
