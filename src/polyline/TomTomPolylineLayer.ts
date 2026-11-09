@@ -37,9 +37,14 @@ export class TomTomPolylineLayer {
   draw(entities: PolylineEntity<TomTomActualPolyline>[]): boolean {
     if (!this.ensureStyleResources()) return false;
 
+    // Features are drawn in list order: zIndex, then the order handed over (a stable sort), as
+    // the polygon layer and the polyline tiles do. Without it a footpath given after a highway
+    // was drawn over it.
+    const ordered = [...entities].sort((a, b) => a.state.zIndex - b.state.zIndex);
     const data: FeatureCollection = {
       type: 'FeatureCollection',
-      features: entities.flatMap((entity) => entity.polyline),
+      // A tiled polyline (core PolylineController.tiler) is kept for taps with no GeoJSON: polyline is null.
+      features: ordered.flatMap((entity) => entity.polyline ?? []),
     };
 
     try {

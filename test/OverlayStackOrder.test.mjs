@@ -11,6 +11,7 @@ import {
     createRasterLayerState,
     RasterLayerSource,
     polygonTileRasterLayerState,
+    polylineTileRasterLayerState,
 } from '@mapconductor/js-sdk-core';
 
 // The overlay stack, bottom to top, on every provider: raster < ground image < polygon <
@@ -210,4 +211,68 @@ test('the polygon tiles go with the polygons: over the ground images, under the 
         }
         assert.deepEqual(map.order().filter((id) => want.includes(id)), want, perm.join(' → '));
     }
+});
+
+test('the polyline tiles go with the polylines: over the circles, under the GeoJSON polylines', async () => {
+    // Mounted through the raster renderer (polylineTileRasterLayerState) like the polygon tiles,
+    // but in the polyline band: over the polygon tiles and the circles, under the native polylines.
+    const polygonTiles = polygonTileRasterLayerState('http://127.0.0.1/polygons-x/{z}/{x}/{y}.png?v=1');
+    const polylineTiles = polylineTileRasterLayerState('http://127.0.0.1/polylines-x/{z}/{x}/{y}.png?v=1');
+    const want = [
+        'mc-raster-lyr-RL',
+        'place-label',
+        'mc-gimg-lyr-GI',
+        'mc-raster-lyr-mc-polygon-tiles',
+        'polygon-fill-layer',
+        'polygon-outline-layer',
+        'circle-layer',
+        'mc-raster-lyr-mc-polyline-tiles',
+        'polyline-layer',
+    ];
+    for (const perm of permutations([...KINDS, 'polygonTiles', 'polylineTiles'])) {
+        const map = glMap();
+        const o = overlays(map);
+        for (const kind of perm) {
+            if (kind === 'polygonTiles') await o.rasterRenderer.onAdd([{ state: polygonTiles }]);
+            else if (kind === 'polylineTiles') await o.rasterRenderer.onAdd([{ state: polylineTiles }]);
+            else await o[kind]();
+        }
+        assert.deepEqual(map.order().filter((id) => want.includes(id)), want, perm.join(' → '));
+    }
+});
+
+test('a tiled polyline (no GeoJSON) is skipped when the layer draws', () => {
+    const map = glMap();
+    const written = [];
+    const addSource = map.addSource;
+    map.addSource = (id, source) => {
+        addSource(id, source);
+        map.getSource(id).setData = (data) => written.push(data);
+    };
+    const layer = new TomTomPolylineLayer({ holder: { map }, canEditStyle: () => true });
+    const feature = { type: 'Feature', geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, properties: {} };
+    assert.equal(layer.draw([
+        { polyline: null, state: { id: 'tiled', zIndex: 0 } },
+        { polyline: [feature], state: { id: 'native', zIndex: 0 } },
+    ]), true);
+    assert.deepEqual(written.at(-1).features, [feature]);
+});
+
+test('the GeoJSON polylines are drawn in zIndex order, then the order handed over', () => {
+    const map = glMap();
+    const written = [];
+    const addSource = map.addSource;
+    map.addSource = (id, source) => {
+        addSource(id, source);
+        map.getSource(id).setData = (data) => written.push(data);
+    };
+    const layer = new TomTomPolylineLayer({ holder: { map }, canEditStyle: () => true });
+    const feature = (name) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, properties: { name } });
+    layer.draw([
+        { polyline: [feature('highway')], state: { id: 'h', zIndex: 6 } },
+        { polyline: [feature('path-1')], state: { id: 'p1', zIndex: 0 } },
+        { polyline: [feature('local')], state: { id: 'l', zIndex: 2 } },
+        { polyline: [feature('path-2')], state: { id: 'p2', zIndex: 0 } },
+    ]);
+    assert.deepEqual(written.at(-1).features.map((f) => f.properties.name), ['path-1', 'path-2', 'local', 'highway']);
 });
