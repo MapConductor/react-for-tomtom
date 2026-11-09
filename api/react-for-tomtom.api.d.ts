@@ -1,5 +1,5 @@
 import { StyleInput, TomTomMap } from '@tomtom-org/maps-sdk/map';
-import { MapConfig, GeoRectBounds, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, PolygonController, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, SlottedOverlayController, OverlayKind, OverlayHit, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MarkerTilingOptions, PolylineTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, PolygonController, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, SlottedOverlayController, OverlayKind, OverlayHit, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import * as maplibregl from 'maplibre-gl';
 import { TomTomMapDesignType, TomTomViewStateInterface } from './state.js';
 export { TomTomDesign, TomTomViewState, useTomTomViewState } from './state.js';
@@ -15,6 +15,11 @@ interface TomTomConfig extends MapConfig {
     /** Restricts panning/zooming so the viewport cannot leave this rectangle. */
     restrictBounds?: GeoRectBounds;
     markerTilingOptions?: MarkerTilingOptions;
+    /**
+     * When to draw polylines as raster tiles; {@link PolylineTilingOptions.Default} if omitted.
+     * The controller's `setPolylineTilingOptions` replaces it later.
+     */
+    polylineTilingOptions?: PolylineTilingOptions;
 }
 /**
  * TomTom provider implementation
@@ -439,6 +444,7 @@ declare class TomTomGroundImageController implements SlottedOverlayController {
     resync(): void;
     clear(): void;
     private cancelPendingUpdates;
+    /** Resolves to true when it created the image (it was not on the map). */
     private upsert;
     private removeById;
     readonly kind: OverlayKind;
@@ -480,8 +486,9 @@ declare class TomTomRasterLayerOverlayRenderer implements RasterLayerOverlayRend
     private stackKey;
     /**
      * Under every other overlay (the raster band is the lowest), and under the basemap's labels,
-     * whichever comes first. Marker tiles and polygon tiles are drawn as a raster but belong with
-     * the markers and the polygons, and are not imagery: they do not go under the labels either
+     * whichever comes first. Marker, polygon and polyline tiles are drawn as a raster but belong
+     * with the markers, the polygons and the polylines, and are not imagery: they do not go under
+     * the labels either
      * (under the first label the polygon tiles can end up beneath the style's opaque fills).
      */
     private beforeId;
@@ -598,6 +605,12 @@ interface TomTomMapViewProps extends MapViewBaseProps<TomTomViewStateInterface> 
     onError?: (error: Error) => void;
     children?: React.ReactNode;
     markerTilingOptions?: MarkerTilingOptions;
+    /**
+     * When to draw polylines as raster tiles ({@link PolylineTilingOptions.Default} if omitted).
+     * Read when the map is created; a later value applies from the next time the polylines are
+     * handed to the map.
+     */
+    polylineTilingOptions?: PolylineTilingOptions;
 }
 declare function TomTomMapView(props: TomTomMapViewProps): React.JSX.Element;
 declare function TomTomMapView2D(props: TomTomMapViewProps): React.JSX.Element;
