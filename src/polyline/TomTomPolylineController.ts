@@ -19,11 +19,6 @@ export class TomTomPolylineController extends PolylineController<TomTomActualPol
     await this.renderer.redraw();
   }
 
-  override async clear(): Promise<void> {
-    await super.clear();
-    await this.renderer.redraw();
-  }
-
   /**
    * Hit-test a map click (its lat/lng) against the polylines geometrically and,
    * if the click lands within the tap tolerance of a line, dispatch the click on

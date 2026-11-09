@@ -5,7 +5,7 @@ import type { TomTomMarkerController } from './marker/TomTomMarkerController';
 import type { TomTomMarkerEventController } from './marker/TomTomMarkerEventController';
 import type { TomTomCircleController } from './circle/TomTomCircleController';
 import type { TomTomPolylineController } from './polyline/TomTomPolylineController';
-import type { TomTomPolygonConductor } from './polygon/TomTomPolygonConductor';
+import type { TomTomPolygonController } from './polygon/TomTomPolygonController';
 import type { TomTomGroundImageController } from './groundimage/TomTomGroundImageController';
 import type { TomTomRasterLayerController } from './raster/TomTomRasterLayerController';
 
@@ -27,7 +27,7 @@ export interface MapEventDeps {
   readonly markerEventController: TomTomMarkerEventController;
   readonly circleController: TomTomCircleController;
   readonly polylineController: TomTomPolylineController;
-  readonly polygonController: TomTomPolygonConductor;
+  readonly polygonController: TomTomPolygonController;
   readonly groundImageController: TomTomGroundImageController;
   readonly rasterLayerController: TomTomRasterLayerController;
   getCameraPosition(): MapCameraPosition | null;

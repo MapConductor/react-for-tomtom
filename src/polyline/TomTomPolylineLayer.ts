@@ -1,6 +1,6 @@
 import type { GeoJSONSource, LayerSpecification } from 'maplibre-gl';
 import type { PolylineEntity } from '@mapconductor/js-sdk-core';
-import { bringMarkerLayersToFront, type FeatureCollection, type LineFeature } from '../helpers';
+import { bringMarkerLayersToFront, setSourceFeatures, type FeatureCollection, type LineFeature, overlayLayerBeforeId, overlayStackKeyOf } from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 export type TomTomActualPolyline = LineFeature[];
@@ -45,7 +45,7 @@ export class TomTomPolylineLayer {
     try {
       const source = this.holder.map.getSource(this.sourceId) as GeoJSONSource | undefined;
       if (!source) return false;
-      source.setData(data);
+      setSourceFeatures(source, data.features);
       return true;
     } catch {
       return false;
@@ -79,7 +79,7 @@ export class TomTomPolylineLayer {
               'line-width': ['get', TomTomPolylineLayer.Prop.STROKE_WIDTH],
             },
           } as LayerSpecification,
-          map.getLayer('mc-marker-layer') ? 'mc-marker-layer' : undefined,
+          overlayLayerBeforeId(map, overlayStackKeyOf(map, this.layerId) ?? { kind: 'polyline' }),
         );
       }
       bringMarkerLayersToFront(map);

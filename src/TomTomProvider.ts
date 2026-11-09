@@ -26,7 +26,7 @@ import { TomTomCircleOverlayRenderer } from './circle/TomTomCircleOverlayRendere
 import { TomTomPolylineController } from './polyline/TomTomPolylineController';
 import { TomTomPolylineLayer, type TomTomActualPolyline } from './polyline/TomTomPolylineLayer';
 import { TomTomPolylineOverlayRenderer } from './polyline/TomTomPolylineOverlayRenderer';
-import { TomTomPolygonConductor } from './polygon/TomTomPolygonConductor';
+import { TomTomPolygonController } from './polygon/TomTomPolygonController';
 import { TomTomPolygonLayer, type TomTomActualPolygon } from './polygon/TomTomPolygonLayer';
 import { TomTomPolygonOverlayRenderer } from './polygon/TomTomPolygonOverlayRenderer';
 import { TomTomGroundImageController } from './groundimage/TomTomGroundImageController';
@@ -229,11 +229,11 @@ function getPolylineController(
 function getPolygonController(
   holder: TomTomMapViewHolder,
   canEditStyle: () => boolean,
-): TomTomPolygonConductor {
+): TomTomPolygonController {
   const polygonManager = new PolygonManager<TomTomActualPolygon>();
   const layer = new TomTomPolygonLayer({ holder, canEditStyle });
   const renderer = new TomTomPolygonOverlayRenderer({ layer, polygonManager, holder });
-  return new TomTomPolygonConductor(renderer);
+  return new TomTomPolygonController(renderer);
 }
 
 function getGroundImageController(

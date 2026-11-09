@@ -72,6 +72,8 @@ export class TomTomGroundImageController implements SlottedOverlayController {
 
   resync(): void {
     this.cancelPendingUpdates();
+    // Called when the style becomes editable again: apply removals held back meanwhile.
+    this.renderer.flushPendingRemovals();
     this.groundImageIds.clear();
     for (const state of this.groundImageStates.values()) void this.upsert(state);
   }
