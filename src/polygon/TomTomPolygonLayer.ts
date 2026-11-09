@@ -5,7 +5,7 @@ import type {
   LineFeature,
   PolygonFeature,
 } from '../helpers';
-import { bringMarkerLayersToFront } from '../helpers';
+import { bringMarkerLayersToFront, overlayLayerBeforeId, overlayStackKeyOf, setSourceFeatures } from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 export interface TomTomActualPolygon {
@@ -54,14 +54,15 @@ export class TomTomPolygonLayer {
   draw(entities: PolygonEntity<TomTomActualPolygon>[]): boolean {
     if (!this.ensureStyleResources()) return false;
 
+    // A tiled polygon (core PolygonController.tiler) is kept for taps with no GeoJSON: polygon is null.
     const ordered = [...entities].sort((a, b) => a.state.zIndex - b.state.zIndex);
     const fillData: FeatureCollection = {
       type: 'FeatureCollection',
-      features: ordered.flatMap((entity) => entity.polygon.fillFeatures),
+      features: ordered.flatMap((entity) => entity.polygon?.fillFeatures ?? []),
     };
     const outlineData: FeatureCollection = {
       type: 'FeatureCollection',
-      features: ordered.flatMap((entity) => entity.polygon.outlineFeatures),
+      features: ordered.flatMap((entity) => entity.polygon?.outlineFeatures ?? []),
     };
 
     try {
@@ -69,8 +70,8 @@ export class TomTomPolygonLayer {
       const outlineSource = this.holder.map.getSource(this.outlineSourceId) as GeoJSONSource | undefined;
       if (!fillSource || !outlineSource) return false;
 
-      fillSource.setData(fillData);
-      outlineSource.setData(outlineData);
+      setSourceFeatures(fillSource, fillData.features);
+      setSourceFeatures(outlineSource, outlineData.features);
       return true;
     } catch {
       return false;
@@ -101,11 +102,7 @@ export class TomTomPolygonLayer {
         });
       }
       if (!map.getLayer(this.layerId)) {
-        const beforeId = map.getLayer('polyline-layer')
-          ? 'polyline-layer'
-          : map.getLayer('mc-marker-layer')
-            ? 'mc-marker-layer'
-            : undefined;
+        const beforeId = overlayLayerBeforeId(map, overlayStackKeyOf(map, this.layerId) ?? { kind: 'polygon', sub: 0 });
         map.addLayer(
           {
             id: this.layerId,
@@ -122,11 +119,7 @@ export class TomTomPolygonLayer {
         );
       }
       if (!map.getLayer(this.outlineLayerId)) {
-        const beforeId = map.getLayer('polyline-layer')
-          ? 'polyline-layer'
-          : map.getLayer('mc-marker-layer')
-            ? 'mc-marker-layer'
-            : undefined;
+        const beforeId = overlayLayerBeforeId(map, overlayStackKeyOf(map, this.outlineLayerId) ?? { kind: 'polygon', sub: 1 });
         map.addLayer(
           {
             id: this.outlineLayerId,
