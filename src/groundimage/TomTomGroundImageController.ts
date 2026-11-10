@@ -2,6 +2,7 @@ import { createGeoPoint, createOverlayHit, type GeoPointInterface, type OverlayH
 import type { OverlayKind, SlottedOverlayController } from '@mapconductor/js-sdk-core';
 import {
   createGroundImageEntity,
+  notifyOverlaysAdded,
   type GeoPoint,
   type GroundImageState,
   wrapClickedPoint,
@@ -27,7 +28,10 @@ export class TomTomGroundImageController implements SlottedOverlayController {
     }
     for (const state of data) {
       this.groundImageStates.set(state.id, state);
-      void this.upsert(state);
+      // Only a composition adds; resync() and update() re-draw what is there.
+      void this.upsert(state).then((created) => {
+        if (created) notifyOverlaysAdded([state]);
+      });
     }
   }
 
@@ -85,7 +89,8 @@ export class TomTomGroundImageController implements SlottedOverlayController {
     this.pendingUpdates.clear();
   }
 
-  private async upsert(state: GroundImageState): Promise<void> {
+  /** Resolves to true when it created the image (it was not on the map). */
+  private async upsert(state: GroundImageState): Promise<boolean> {
     if (this.groundImageIds.has(state.id)) {
       const entity = createGroundImageEntity({ groundImage: state.id, state });
       await this.renderer.updateGroundImageProperties({
@@ -93,11 +98,12 @@ export class TomTomGroundImageController implements SlottedOverlayController {
         current: entity,
         prev: entity,
       });
-    } else {
-      const id = await this.renderer.createGroundImage(state);
-      if (!id) return;
-      this.groundImageIds.add(id);
+      return false;
     }
+    const id = await this.renderer.createGroundImage(state);
+    if (!id) return false;
+    this.groundImageIds.add(id);
+    return true;
   }
 
   private async removeById(id: string): Promise<void> {

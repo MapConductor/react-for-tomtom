@@ -109,6 +109,12 @@ export const MARKER_TILES_LAYER_ID = 'mc-raster-lyr-mc-marker-tiles';
  * polygon band, under the polygons drawn as GeoJSON (geodesic ones), which stay on top.
  */
 export const POLYGON_TILES_LAYER_ID = 'mc-raster-lyr-mc-polygon-tiles';
+/**
+ * The raster layer of the SDK's polyline tiles (js-sdk-core POLYLINE_TILE_LAYER_ID). It is in the
+ * polyline band: over the circles, under the polylines drawn as GeoJSON (geodesic ones) and the
+ * markers.
+ */
+export const POLYLINE_TILES_LAYER_ID = 'mc-raster-lyr-mc-polyline-tiles';
 
 /** Layers with a fixed place: one per kind, holding every overlay of that kind. */
 const FIXED_STACK_KEYS: Record<string, OverlayStackKey> = {
@@ -117,6 +123,7 @@ const FIXED_STACK_KEYS: Record<string, OverlayStackKey> = {
   'polygon-outline-layer': { kind: 'polygon', sub: 1 },
   'circle-layer': { kind: 'circle', sub: 0 },
   'circle-layer-stroke': { kind: 'circle', sub: 1 },
+  [POLYLINE_TILES_LAYER_ID]: { kind: 'polyline', sub: -1 },
   'polyline-layer': { kind: 'polyline' },
   [MARKER_TILES_LAYER_ID]: { kind: 'marker', sub: 0 },
   'mc-marker-layer': { kind: 'marker', sub: 1 },

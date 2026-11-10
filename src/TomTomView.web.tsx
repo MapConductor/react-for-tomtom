@@ -13,13 +13,13 @@ import {
 import {
   useMapViewStyle,
   useCameraRestriction,
-  useMapUISettings,
+  useMapUISettings, usePolylineTilingOptions,
   useMarkerRenderingSupport,
 } from '@mapconductor/js-sdk-react/internal';
 import {
   MapViewBaseProps,
   OverlayCollector,
-  MarkerTilingOptions,
+  MarkerTilingOptions, PolylineTilingOptions,
   type GeoRectBounds,
   type MapCameraPosition,
   type GeoPoint,
@@ -42,6 +42,12 @@ export interface TomTomMapViewProps extends MapViewBaseProps<TomTomViewStateInte
   onError?: (error: Error) => void;
   children?: React.ReactNode;
   markerTilingOptions?: MarkerTilingOptions;
+  /**
+   * When to draw polylines as raster tiles ({@link PolylineTilingOptions.Default} if omitted).
+   * Read when the map is created; a later value applies from the next time the polylines are
+   * handed to the map.
+   */
+  polylineTilingOptions?: PolylineTilingOptions;
 }
 
 type InternalTomTomMapViewProps = TomTomMapViewProps;
@@ -71,6 +77,7 @@ function InternalTomTomMapView({
   onError,
   children,
   markerTilingOptions,
+  polylineTilingOptions,
 }: InternalTomTomMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [provider] = useState(() => new TomTomProvider());
@@ -118,6 +125,7 @@ function InternalTomTomMapView({
       restrictBounds,
       initCameraPosition: state.cameraPosition,
       markerTilingOptions,
+      polylineTilingOptions,
     };
 
     provider
@@ -231,6 +239,7 @@ function InternalTomTomMapView({
   }, [state.apiKey]);
 
   useMapUISettings(state, controller);
+  usePolylineTilingOptions(controller, polylineTilingOptions);
   // マップ生成時 config だけでなく、prop の変化にも追随させる（android-sdk 相当）。
   useCameraRestriction(controller, { cameraRestriction, restrictBounds, minZoom, maxZoom });
 
