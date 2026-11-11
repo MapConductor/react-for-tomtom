@@ -45,7 +45,8 @@ export class TomTomCircleLayer {
 
     const data: FeatureCollection = {
       type: 'FeatureCollection',
-      features: entities.map((entity) => entity.circle),
+      // A tiled circle (core CircleController.tiler) is kept for taps with no GeoJSON: circle is null.
+      features: entities.flatMap((entity) => entity.circle ?? []),
     };
 
     try {
