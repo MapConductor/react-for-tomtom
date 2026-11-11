@@ -3,6 +3,7 @@ import {
   createDefaultIcon,
   createMarkerEntity,
   markerIconHashCode,
+  markerDrawOrder,
   type AddParams,
   type BitmapIcon,
   type ChangeParams,
@@ -306,8 +307,6 @@ function createIconOffset(icon: BitmapIcon): [number, number] {
 }
 
 function resolveZIndex(state: MarkerState): number {
-  // android-sdk と同じく、未指定(null)のときだけ緯度による自動 z-order にフォールバックする。
-  // 明示的な 0 は「z-order 0」として尊重する。
-  if (state.zIndex != null) return state.zIndex;
-  return Math.round(-state.position.latitude * 1_000_000 - state.position.longitude);
+  // zIndex（未指定は 0）が先、同じなら南、緯度も同じなら西が手前。全プロバイダ共通の順。
+  return markerDrawOrder(state.zIndex, state.position);
 }
