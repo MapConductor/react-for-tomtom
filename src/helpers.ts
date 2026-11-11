@@ -115,12 +115,19 @@ export const POLYGON_TILES_LAYER_ID = 'mc-raster-lyr-mc-polygon-tiles';
  * markers.
  */
 export const POLYLINE_TILES_LAYER_ID = 'mc-raster-lyr-mc-polyline-tiles';
+/**
+ * The raster layer of the SDK's circle tiles (js-sdk-core CIRCLE_TILE_LAYER_ID). It is at the
+ * bottom of the circle band: over the polygons (tiled or GeoJSON), under the circles drawn as
+ * GeoJSON (those that cannot be tiled), the polylines and the markers.
+ */
+export const CIRCLE_TILES_LAYER_ID = 'mc-raster-lyr-mc-circle-tiles';
 
 /** Layers with a fixed place: one per kind, holding every overlay of that kind. */
 const FIXED_STACK_KEYS: Record<string, OverlayStackKey> = {
   [POLYGON_TILES_LAYER_ID]: { kind: 'polygon', sub: -1 },
   'polygon-fill-layer': { kind: 'polygon', sub: 0 },
   'polygon-outline-layer': { kind: 'polygon', sub: 1 },
+  [CIRCLE_TILES_LAYER_ID]: { kind: 'circle', sub: -1 },
   'circle-layer': { kind: 'circle', sub: 0 },
   'circle-layer-stroke': { kind: 'circle', sub: 1 },
   [POLYLINE_TILES_LAYER_ID]: { kind: 'polyline', sub: -1 },

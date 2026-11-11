@@ -12,6 +12,7 @@ import {
     RasterLayerSource,
     polygonTileRasterLayerState,
     polylineTileRasterLayerState,
+    circleTileRasterLayerState,
 } from '@mapconductor/js-sdk-core';
 
 // The overlay stack, bottom to top, on every provider: raster < ground image < polygon <
@@ -275,4 +276,52 @@ test('the GeoJSON polylines are drawn in zIndex order, then the order handed ove
         { polyline: [feature('path-2')], state: { id: 'p2', zIndex: 0 } },
     ]);
     assert.deepEqual(written.at(-1).features.map((f) => f.properties.name), ['path-1', 'path-2', 'local', 'highway']);
+});
+
+test('the circle tiles are at the bottom of the circle band: over the polygons, under the GeoJSON circles and the polyline tiles', async () => {
+    // Mounted through the raster renderer (circleTileRasterLayerState) like the polygon and
+    // polyline tiles, but in the circle band, under the circles drawn as GeoJSON.
+    const polygonTiles = polygonTileRasterLayerState('http://127.0.0.1/polygons-x/{z}/{x}/{y}.png?v=1');
+    const circleTiles = circleTileRasterLayerState('http://127.0.0.1/circles-x/{z}/{x}/{y}.png?v=1');
+    const polylineTiles = polylineTileRasterLayerState('http://127.0.0.1/polylines-x/{z}/{x}/{y}.png?v=1');
+    const want = [
+        'mc-raster-lyr-RL',
+        'place-label',
+        'mc-gimg-lyr-GI',
+        'mc-raster-lyr-mc-polygon-tiles',
+        'polygon-fill-layer',
+        'polygon-outline-layer',
+        'mc-raster-lyr-mc-circle-tiles',
+        'circle-layer',
+        'circle-layer-stroke',
+        'mc-raster-lyr-mc-polyline-tiles',
+        'polyline-layer',
+    ];
+    const tiles = { polygonTiles, circleTiles, polylineTiles };
+    for (const perm of permutations([...KINDS, 'polygonTiles', 'circleTiles', 'polylineTiles'])) {
+        const map = glMap();
+        const o = overlays(map);
+        for (const kind of perm) {
+            if (tiles[kind]) await o.rasterRenderer.onAdd([{ state: tiles[kind] }]);
+            else await o[kind]();
+        }
+        assert.deepEqual(map.order().filter((id) => want.includes(id)), want, perm.join(' → '));
+    }
+});
+
+test('a tiled circle (no GeoJSON) is skipped when the layer draws', () => {
+    const map = glMap();
+    const written = [];
+    const addSource = map.addSource;
+    map.addSource = (id, source) => {
+        addSource(id, source);
+        map.getSource(id).setData = (data) => written.push(data);
+    };
+    const layer = new TomTomCircleLayer({ holder: { map }, canEditStyle: () => true });
+    const feature = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, properties: {} };
+    assert.equal(layer.draw([
+        { circle: null, state: { id: 'tiled', zIndex: 0 } },
+        { circle: feature, state: { id: 'native', zIndex: 0 } },
+    ]), true);
+    assert.deepEqual(written.at(-1).features, [feature]);
 });

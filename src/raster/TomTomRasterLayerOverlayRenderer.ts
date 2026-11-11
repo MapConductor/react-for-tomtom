@@ -14,6 +14,7 @@ import {
   MARKER_TILES_LAYER_ID,
   POLYGON_TILES_LAYER_ID,
   POLYLINE_TILES_LAYER_ID,
+  CIRCLE_TILES_LAYER_ID,
   moveLayerToStackPlace,
   overlayLayerBeforeId,
   overlayStackKeyOf,
@@ -71,7 +72,7 @@ export class TomTomRasterLayerOverlayRenderer
         return this.addLayer(next);
       }
       this.updateLayer(prev.layer, next);
-      if (prev.state.zIndex !== next.zIndex && prev.layer.layerId !== MARKER_TILES_LAYER_ID && prev.layer.layerId !== POLYGON_TILES_LAYER_ID && prev.layer.layerId !== POLYLINE_TILES_LAYER_ID && this.canEditStyle()) {
+      if (prev.state.zIndex !== next.zIndex && prev.layer.layerId !== MARKER_TILES_LAYER_ID && prev.layer.layerId !== POLYGON_TILES_LAYER_ID && prev.layer.layerId !== POLYLINE_TILES_LAYER_ID && prev.layer.layerId !== CIRCLE_TILES_LAYER_ID && this.canEditStyle()) {
         moveLayerToStackPlace(this.holder.map, prev.layer.layerId, this.stackKey(prev.layer.layerId, next));
       }
       return prev.layer;
@@ -130,13 +131,13 @@ export class TomTomRasterLayerOverlayRenderer
 
   /**
    * Under every other overlay (the raster band is the lowest), and under the basemap's labels,
-   * whichever comes first. Marker, polygon and polyline tiles are drawn as a raster but belong
-   * with the markers, the polygons and the polylines, and are not imagery: they do not go under
-   * the labels either
+   * whichever comes first. Marker, polygon, circle and polyline tiles are drawn as a raster but
+   * belong with the markers, the polygons, the circles and the polylines, and are not imagery: they
+   * do not go under the labels either
    * (under the first label the polygon tiles can end up beneath the style's opaque fills).
    */
   private beforeId(layerId: string, state: RasterLayerState): string | undefined {
-    if (layerId === MARKER_TILES_LAYER_ID || layerId === POLYGON_TILES_LAYER_ID || layerId === POLYLINE_TILES_LAYER_ID) {
+    if (layerId === MARKER_TILES_LAYER_ID || layerId === POLYGON_TILES_LAYER_ID || layerId === POLYLINE_TILES_LAYER_ID || layerId === CIRCLE_TILES_LAYER_ID) {
       return overlayLayerBeforeId(this.holder.map, overlayStackKeyOf(this.holder.map, layerId)!);
     }
     const stack = overlayLayerBeforeId(this.holder.map, this.stackKey(layerId, state));

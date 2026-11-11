@@ -1,4 +1,4 @@
-import { PolygonTiler, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState, POLYLINE_TILE_LAYER_ID, polylineTileRasterLayerState } from '@mapconductor/js-sdk-core';
+import { PolygonTiler, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState, POLYLINE_TILE_LAYER_ID, polylineTileRasterLayerState, CIRCLE_TILE_LAYER_ID, circleTileRasterLayerState } from '@mapconductor/js-sdk-core';
 import type * as maplibregl from 'maplibre-gl';
 import {
   BaseMapViewController,
@@ -119,6 +119,14 @@ export class TomTomViewController
       this.polylineController.tiler.onTemplate = async (template, tileSize) => {
         if (template) await this.rasterLayerController.upsert(polylineTileRasterLayerState(template, tileSize));
         else await this.rasterLayerController.removeById(POLYLINE_TILE_LAYER_ID);
+      };
+    }
+    // Many circles are drawn as tiles too (the tiler is set by the provider, with the map's
+    // CircleTilingOptions) and shown as one raster layer, at the bottom of the circle band.
+    if (this.circleController.tiler) {
+      this.circleController.tiler.onTemplate = async (template, tileSize) => {
+        if (template) await this.rasterLayerController.upsert(circleTileRasterLayerState(template, tileSize));
+        else await this.rasterLayerController.removeById(CIRCLE_TILE_LAYER_ID);
       };
     }
     // upsert / removeById, not composition / clear: those replace every raster
