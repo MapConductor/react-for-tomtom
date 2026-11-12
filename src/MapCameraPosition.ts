@@ -1,4 +1,4 @@
-import { createGeoPoint, createMapCameraPosition, computeOffset, type MapCameraPosition, toNativeHeading, bearingFromNativeHeading, } from '@mapconductor/js-sdk-core';
+import { createGeoPoint, createMapCameraPosition, computeOffset, type MapCameraPosition, MapPaddings, toNativeHeading, bearingFromNativeHeading, } from '@mapconductor/js-sdk-core';
 import type * as maplibregl from 'maplibre-gl';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 
@@ -25,7 +25,9 @@ export function toCameraPosition(pos: MapCameraPosition): {
     zoom: number;
     bearing: number;
     tilt: number;
+    padding?: NativePadding;
 } {
+    const padding = toNativePadding(pos.paddings);
     if (pos.tilt >= 0) {
         return {
             center: [pos.position.longitude, pos.position.latitude],
@@ -38,6 +40,7 @@ export function toCameraPosition(pos: MapCameraPosition): {
             zoom: ZoomAltitudeConverter.googleZoomToTomTomZoom(snapZoomToGoogle(pos.zoom), pos.position.latitude),
             bearing: toNativeHeading(pos.bearing),
             tilt: pos.tilt,
+            padding,
         };
     } else {
         // tilt < 0: TomTom cannot represent an upward pitch directly.
@@ -63,6 +66,7 @@ export function toCameraPosition(pos: MapCameraPosition): {
             zoom: ZoomAltitudeConverter.googleZoomToTomTomZoom(adjustedZoom, target.latitude),
             bearing: toNativeHeading(pos.bearing),
             tilt: tiltAbsDeg,
+            padding,
         };
     }
 }
@@ -76,14 +80,23 @@ export function toMapCameraPosition({
     zoom,
     bearing,
     tilt,
+    padding,
+    fov = null,
     logicalTiltHint = null,
 }: {
     center: maplibregl.LngLat;
     zoom: number;
     bearing: number;
     tilt: number;
+    padding?: Partial<NativePadding>;
+    fov?: number | null;
     logicalTiltHint?: number | null;
 }): MapCameraPosition {
+    // パディングを付けて動かした後の center は「パディングを除いた領域の中央」。
+    // それを position として返すので、paddings も一緒に返して意味を揃える。
+    const paddings: MapPaddings = padding
+        ? { top: padding.top ?? 0, left: padding.left ?? 0, bottom: padding.bottom ?? 0, right: padding.right ?? 0 }
+        : MapPaddings.Zeros;
     const pitchAbsDeg = Math.min(Math.max(Math.abs(tilt), 0), 60);
     if (logicalTiltHint != null && logicalTiltHint < 0 && pitchAbsDeg > 0) {
         const pitchAbsRad = (pitchAbsDeg * Math.PI) / 180;
@@ -107,6 +120,8 @@ export function toMapCameraPosition({
             zoom: originalGoogleZoom,
             bearing: bearingFromNativeHeading(bearing),
             tilt: -pitchAbsDeg,
+            paddings,
+            fov,
         });
     }
     return createMapCameraPosition({
@@ -114,5 +129,39 @@ export function toMapCameraPosition({
         zoom: ZoomAltitudeConverter.tomtomZoomToGoogleZoom(zoom, center.lat),
         bearing: bearingFromNativeHeading(bearing),
         tilt,
+        paddings,
+        fov,
     });
+}
+
+/** MapLibre 系エンジンの padding（PaddingOptions と同じ形）。 */
+export interface NativePadding {
+    top: number;
+    left: number;
+    bottom: number;
+    right: number;
+}
+
+/**
+ * `MapCameraPosition.paddings` → エンジンの `padding`。
+ *
+ * エンジンはパディングを除いた領域の中央にカメラの中心を置く。tilt があっても
+ * 遠近はエンジンが解く。null は「今のパディングを変えない」。
+ */
+export function toNativePadding(paddings: MapPaddings | null | undefined): NativePadding | undefined {
+    if (paddings == null) return undefined;
+    return { top: paddings.top, left: paddings.left, bottom: paddings.bottom, right: paddings.right };
+}
+
+/**
+ * MapLibre / Mapbox GL の既定の上下視野角（度）。`getVerticalFieldOfView` を
+ * 持たない版のエンジンでだけ使う。
+ */
+const DEFAULT_VERTICAL_FOV_DEGREES = 36.87;
+
+/** エンジンが描いているカメラの上下視野角（度）。`MapCameraPosition.fov` に載せる。 */
+export function readVerticalFov(map: unknown): number {
+    const getter = (map as { getVerticalFieldOfView?: () => number }).getVerticalFieldOfView;
+    const fov = typeof getter === 'function' ? getter.call(map) : undefined;
+    return typeof fov === 'number' && Number.isFinite(fov) ? fov : DEFAULT_VERTICAL_FOV_DEGREES;
 }
