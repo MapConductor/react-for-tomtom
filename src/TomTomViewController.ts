@@ -1,4 +1,4 @@
-import { PolygonTiler, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState, POLYLINE_TILE_LAYER_ID, polylineTileRasterLayerState, CIRCLE_TILE_LAYER_ID, circleTileRasterLayerState } from '@mapconductor/js-sdk-core';
+import { cameraFromPaddedCenter, cameraWithPaddedCenter, MapPaddings, PolygonTiler, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState, POLYLINE_TILE_LAYER_ID, polylineTileRasterLayerState, CIRCLE_TILE_LAYER_ID, circleTileRasterLayerState } from '@mapconductor/js-sdk-core';
 import type * as maplibregl from 'maplibre-gl';
 import {
   BaseMapViewController,
@@ -24,6 +24,7 @@ import {
   type GeoPoint,
 } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
+import { readVerticalFov } from './MapCameraPosition';
 import type { TomTomMap } from '@tomtom-org/maps-sdk/map';
 import type { TomTomMapDesignType } from './TomTomDesign';
 import { TomTomMapViewHolder } from './TomTomMapViewHolder';
@@ -56,6 +57,14 @@ export class TomTomViewController
   private readonly mapInstance: maplibregl.Map;
   private initialized = false;
   private logicalTiltHint: number | null = null;
+  /**
+   * The paddings the app asked for. The engine's own `padding` is left at zero:
+   * it widens the frustum toward the top, so under tilt a large top padding
+   * reaches past the horizon and the engine loads tiles out to it (the map
+   * stalls). Shifting the camera centre instead puts the target at the padded
+   * centre with the frustum the engine would draw without padding.
+   */
+  private cameraPaddings: MapPaddings = MapPaddings.Zeros;
   private readonly styleReadyRef: { current: boolean };
   /** The SDK wrapper that owns style switching; null when driven headless. */
   private readonly ttMap: TomTomMap | null;
@@ -188,20 +197,40 @@ export class TomTomViewController
 
   moveCamera(position: MapCameraPosition): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
-    return jumpToPosition(this.mapInstance, position);
+    return jumpToPosition(this.mapInstance, this.withPaddedCenter(position));
   }
 
   animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
-    return easeToPosition(this.mapInstance, position, durationMillis);
+    return easeToPosition(this.mapInstance, this.withPaddedCenter(position), durationMillis);
   }
 
   fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean> {
+    // The fit centres the bounds in the full view (the engine does not keep a
+    // fit's padding), so the camera paddings no longer describe the view.
+    this.cameraPaddings = MapPaddings.Zeros;
     return fitMapBounds(this.mapInstance, bounds, padding);
   }
 
   getCameraPosition(): MapCameraPosition | null {
-    return readCameraPosition(this.mapInstance, this.holder, this.logicalTiltHint);
+    const camera = readCameraPosition(this.mapInstance, this.holder, this.logicalTiltHint);
+    if (!camera) return camera;
+    return cameraFromPaddedCenter(camera, this.cameraPaddings, camera.fov, this.canvasSize());
+  }
+
+  /** Moves the camera centre so the target lands at the padded-area centre; the engine's padding stays zero. */
+  private withPaddedCenter(position: MapCameraPosition): MapCameraPosition {
+    const paddings = position.paddings ?? this.cameraPaddings;
+    this.cameraPaddings = paddings;
+    // toCameraPosition snaps a non-negative tilt's zoom to an integer, so measure the shift at that zoom.
+    const zoom = position.tilt >= 0 ? Math.round(position.zoom) : position.zoom;
+    return cameraWithPaddedCenter(position.copy({ paddings }), readVerticalFov(this.mapInstance), this.canvasSize(), zoom)
+      .copy({ paddings: MapPaddings.Zeros });
+  }
+
+  private canvasSize(): { width: number; height: number } {
+    const canvas = this.mapInstance.getCanvas();
+    return { width: canvas.clientWidth, height: canvas.clientHeight };
   }
 
   // --- Marker ---
