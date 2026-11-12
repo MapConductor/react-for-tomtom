@@ -12,6 +12,7 @@ import {
   type MapViewControllerInterface,
 } from '@mapconductor/js-sdk-core';
 import { TomTomViewController } from './TomTomViewController';
+import { TomTomBlankBasemap } from './TomTomBlankBasemap';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 import { toCameraPosition } from './MapCameraPosition';
 import { TomTomMapViewHolder } from './TomTomMapViewHolder';
@@ -37,7 +38,7 @@ import { TomTomRasterLayerOverlayRenderer } from './raster/TomTomRasterLayerOver
 export interface TomTomConfig extends MapConfig {
   /** TomTom API key (mapKey). Passed to `new TomTomMap({ key })`. */
   apiKey?: string;
-  /** TomTom Orbis style: a standard style id ('standardLight' etc.) or a StandardStyle config. */
+  /** TomTom Orbis style: a standard style id ('streetLight' etc.) or a StandardStyle config. */
   style?: StyleInput;
   maxZoom?: number;
   minZoom?: number;
@@ -100,7 +101,7 @@ export class TomTomProvider extends MapProvider {
     // point drives that MapLibre map exactly like the MapLibre provider.
     const ttMap = new TomTomMap({
       apiKey: config.apiKey ?? '',
-      style: config.style ?? 'standardLight',
+      style: config.style ?? 'streetLight',
       mapLibre: {
         container,
         center: initialCamera?.center ?? [0, 0],
@@ -119,6 +120,8 @@ export class TomTomProvider extends MapProvider {
     this.map = map;
     // paddings are applied by the controller (camera-centre shift) on its first move, not as engine padding.
     this.ttMap = ttMap;
+    // Registered before the style loads so TomTomDesign.None never paints its basemap.
+    const blankBasemap = new TomTomBlankBasemap(map, ttMap, config.style);
 
     await new Promise<void>((resolve, reject) => {
       // 'load' fires once TomTom's Orbis style has finished loading on the MapLibre map.
@@ -157,7 +160,7 @@ export class TomTomProvider extends MapProvider {
     const groundImageController = getGroundImageController(holder, canEditStyle);
     const rasterLayerController = getRasterLayerController(holder, canEditStyle);
 
-    this.controller = new TomTomViewController(
+    const controller = new TomTomViewController(
       holder,
       markerController,
       markerEventController,
@@ -170,6 +173,8 @@ export class TomTomProvider extends MapProvider {
       config.initCameraPosition?.tilt ?? null,
       ttMap,
     );
+    controller.attachBlankBasemap(blankBasemap);
+    this.controller = controller;
     return this.controller;
   }
 

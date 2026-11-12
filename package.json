@@ -45,7 +45,7 @@
   "dependencies": {
     "@mapconductor/js-sdk-core": "^0.4.0",
     "@mapconductor/js-sdk-react": "^0.4.0",
-    "@tomtom-org/maps-sdk": "^0.64.0",
+    "@tomtom-org/maps-sdk": "^1.0.0",
     "@turf/turf": "^7.4.0",
     "lodash-es": "^4.18.1",
     "maplibre-gl": "^6.16.0"
