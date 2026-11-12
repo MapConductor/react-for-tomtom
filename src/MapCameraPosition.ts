@@ -145,8 +145,11 @@ export interface NativePadding {
 /**
  * `MapCameraPosition.paddings` → エンジンの `padding`。
  *
- * エンジンはパディングを除いた領域の中央にカメラの中心を置く。tilt があっても
- * 遠近はエンジンが解く。null は「今のパディングを変えない」。
+ * コントローラはここへ常に 0 を渡し、エンジンのパディングを 0 に戻すために使う。
+ * アプリが指定した paddings は、カメラの中心をずらす計算（core の
+ * cameraWithPaddedCenter）で再現する。エンジンのパディングは視錐台を上へ広げるので、
+ * tilt があって上を大きく空けると地平線の先までタイルを読みに行き、地図が固まる。
+ * null は「今のパディングを変えない」。
  */
 export function toNativePadding(paddings: MapPaddings | null | undefined): NativePadding | undefined {
     if (paddings == null) return undefined;

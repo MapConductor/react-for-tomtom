@@ -546,6 +546,14 @@ declare class TomTomViewController extends BaseMapViewController implements MapV
     private readonly mapInstance;
     private initialized;
     private logicalTiltHint;
+    /**
+     * The paddings the app asked for. The engine's own `padding` is left at zero:
+     * it widens the frustum toward the top, so under tilt a large top padding
+     * reaches past the horizon and the engine loads tiles out to it (the map
+     * stalls). Shifting the camera centre instead puts the target at the padded
+     * centre with the frustum the engine would draw without padding.
+     */
+    private cameraPaddings;
     private readonly styleReadyRef;
     /** The SDK wrapper that owns style switching; null when driven headless. */
     private readonly ttMap;
@@ -574,6 +582,9 @@ declare class TomTomViewController extends BaseMapViewController implements MapV
     animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean>;
     fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean>;
     getCameraPosition(): MapCameraPosition | null;
+    /** Moves the camera centre so the target lands at the padded-area centre; the engine's padding stays zero. */
+    private withPaddedCenter;
+    private canvasSize;
     /**
      * マーカーのヒットテストと配送。カスケードの先頭。
      *
