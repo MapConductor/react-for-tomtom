@@ -27,6 +27,7 @@ import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 import { readVerticalFov } from './MapCameraPosition';
 import type { TomTomMap } from '@tomtom-org/maps-sdk/map';
 import type { TomTomMapDesignType } from './TomTomDesign';
+import { isBlankStyle, type TomTomBlankBasemap } from './TomTomBlankBasemap';
 import { TomTomMapViewHolder } from './TomTomMapViewHolder';
 import { TomTomMarkerController } from './marker/TomTomMarkerController';
 import { TomTomMarkerEventController } from './marker/TomTomMarkerEventController';
@@ -68,6 +69,7 @@ export class TomTomViewController
   private readonly styleReadyRef: { current: boolean };
   /** The SDK wrapper that owns style switching; null when driven headless. */
   private readonly ttMap: TomTomMap | null;
+  private blankBasemap: TomTomBlankBasemap | null = null;
 
   readonly holder: TomTomMapViewHolder;
   private readonly markerController: TomTomMarkerController;
@@ -158,7 +160,17 @@ export class TomTomViewController
    * MapLibre. Called by the view state's `mapDesignType` setter.
    */
   setMapDesignType(design: TomTomMapDesignType): void {
+    this.blankBasemap?.setActive(isBlankStyle(design.style));
     this.ttMap?.setStyle(design.style);
+  }
+
+  /**
+   * Hands over what shows `TomTomDesign.None` (the provider creates it before the
+   * style loads, so the first paint is already blank).
+   * @internal
+   */
+  attachBlankBasemap(blankBasemap: TomTomBlankBasemap): void {
+    this.blankBasemap = blankBasemap;
   }
 
   applyUISettings(settings: MapUISettings): void {
@@ -342,6 +354,7 @@ export class TomTomViewController
 
   destroy(): void {
     super.destroy();
+    this.blankBasemap?.destroy();
     this.markerEventController.destroy();
     void this.clearOverlays().finally(() => {
       this.markerController.destroy();

@@ -8,7 +8,7 @@ import React from 'react';
 interface TomTomConfig extends MapConfig {
     /** TomTom API key (mapKey). Passed to `new TomTomMap({ key })`. */
     apiKey?: string;
-    /** TomTom Orbis style: a standard style id ('standardLight' etc.) or a StandardStyle config. */
+    /** TomTom Orbis style: a standard style id ('streetLight' etc.) or a StandardStyle config. */
     style?: StyleInput;
     maxZoom?: number;
     minZoom?: number;
@@ -557,6 +557,7 @@ declare class TomTomViewController extends BaseMapViewController implements MapV
     private readonly styleReadyRef;
     /** The SDK wrapper that owns style switching; null when driven headless. */
     private readonly ttMap;
+    private blankBasemap;
     readonly holder: TomTomMapViewHolder;
     private readonly markerController;
     private readonly markerEventController;
