@@ -5,6 +5,71 @@ through MapConductor's provider-independent camera, marker, and overlay API, so
 the same application code can also run on Google Maps, MapLibre, Mapbox,
 MapTiler, Leaflet, OpenLayers, ArcGIS, Cesium, or HERE.
 
+## Demo
+
+[![Store map sample on TomTom](https://raw.githubusercontent.com/MapConductor/react-for-tomtom/main/docs/images/demo.jpg)](https://demo-react.mapconductor.com/tomtom/map/en)
+
+Open it in the [live demo](https://demo-react.mapconductor.com/tomtom/map/en): the same store map runs on every provider, and the page switches between them. The code, cut down to three stores:
+
+```tsx
+import { useMemo, useState } from 'react';
+import {
+  createGeoPoint,
+  createMapCameraPosition,
+  createMarkerState,
+  type MarkerState,
+} from '@mapconductor/js-sdk-core';
+import { InfoBubble, Markers } from '@mapconductor/js-sdk-react';
+import { TomTomDesign, TomTomMapView2D, useTomTomViewState } from '@mapconductor/react-for-tomtom';
+
+const STORES = [
+  { id: 'waikiki', name: 'Waikiki', latitude: 21.2793, longitude: -157.8292 },
+  { id: 'kailua', name: 'Kailua', latitude: 21.3972, longitude: -157.7394 },
+  { id: 'haleiwa', name: 'Haleiwa', latitude: 21.5928, longitude: -158.1034 },
+];
+
+const INITIAL_CAMERA = createMapCameraPosition({
+  position: createGeoPoint({ latitude: 21.38, longitude: -157.93 }),
+  zoom: 10,
+});
+
+export default function App() {
+  const mapViewState = useTomTomViewState({
+    apiKey: 'YOUR_TOMTOM_API_KEY',
+    mapDesignType: TomTomDesign.Standard,
+    cameraPosition: INITIAL_CAMERA,
+  });
+  const [selected, setSelected] = useState<MarkerState | null>(null);
+  const markers = useMemo(
+    () =>
+      STORES.map(store =>
+        createMarkerState({
+          id: store.id,
+          position: createGeoPoint({ latitude: store.latitude, longitude: store.longitude }),
+          extra: store,
+          onClick: marker => setSelected(marker),
+        }),
+      ),
+    [],
+  );
+
+  return (
+    <div style={{ width: '100%', height: '100vh' }}>
+      <TomTomMapView2D state={mapViewState} onMapClick={() => setSelected(null)}>
+        <Markers states={markers} />
+        {selected && (
+          <InfoBubble marker={selected}>
+            <strong>{(selected.extra as (typeof STORES)[number]).name}</strong>
+          </InfoBubble>
+        )}
+      </TomTomMapView2D>
+    </div>
+  );
+}
+```
+
+Replace `YOUR_TOMTOM_API_KEY` with your own key.
+
 ## Installation
 
 ```shell
