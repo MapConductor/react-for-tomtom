@@ -52,7 +52,7 @@ export class TomTomCircleOverlayRenderer extends AbstractCircleOverlayRenderer<
   }
 
   override async onPostProcess(): Promise<void> {
-    this.layer.draw(this.circleManager.allEntities());
+    this.layer.draw((this.circleManager.nativeEntities?.() ?? this.circleManager.allEntities()));
   }
 
   async redraw(): Promise<void> {

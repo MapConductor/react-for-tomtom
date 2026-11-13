@@ -4,7 +4,7 @@ import {
   CircleManager,
   MapProvider,
   MarkerManager,
-  MarkerTilingOptions,
+  MarkerTilingOptions, PolylineTiler, PolylineTilingOptions, CircleTiler, CircleTilingOptions,
   PolygonManager,
   PolylineManager,
   type GeoRectBounds,
@@ -12,6 +12,7 @@ import {
   type MapViewControllerInterface,
 } from '@mapconductor/js-sdk-core';
 import { TomTomViewController } from './TomTomViewController';
+import { TomTomBlankBasemap } from './TomTomBlankBasemap';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 import { toCameraPosition } from './MapCameraPosition';
 import { TomTomMapViewHolder } from './TomTomMapViewHolder';
@@ -26,7 +27,7 @@ import { TomTomCircleOverlayRenderer } from './circle/TomTomCircleOverlayRendere
 import { TomTomPolylineController } from './polyline/TomTomPolylineController';
 import { TomTomPolylineLayer, type TomTomActualPolyline } from './polyline/TomTomPolylineLayer';
 import { TomTomPolylineOverlayRenderer } from './polyline/TomTomPolylineOverlayRenderer';
-import { TomTomPolygonConductor } from './polygon/TomTomPolygonConductor';
+import { TomTomPolygonController } from './polygon/TomTomPolygonController';
 import { TomTomPolygonLayer, type TomTomActualPolygon } from './polygon/TomTomPolygonLayer';
 import { TomTomPolygonOverlayRenderer } from './polygon/TomTomPolygonOverlayRenderer';
 import { TomTomGroundImageController } from './groundimage/TomTomGroundImageController';
@@ -37,13 +38,23 @@ import { TomTomRasterLayerOverlayRenderer } from './raster/TomTomRasterLayerOver
 export interface TomTomConfig extends MapConfig {
   /** TomTom API key (mapKey). Passed to `new TomTomMap({ key })`. */
   apiKey?: string;
-  /** TomTom Orbis style: a standard style id ('standardLight' etc.) or a StandardStyle config. */
+  /** TomTom Orbis style: a standard style id ('streetLight' etc.) or a StandardStyle config. */
   style?: StyleInput;
   maxZoom?: number;
   minZoom?: number;
   /** Restricts panning/zooming so the viewport cannot leave this rectangle. */
   restrictBounds?: GeoRectBounds;
   markerTilingOptions?: MarkerTilingOptions;
+  /**
+   * When to draw polylines as raster tiles; {@link PolylineTilingOptions.Default} if omitted.
+   * The controller's `setPolylineTilingOptions` replaces it later.
+   */
+  polylineTilingOptions?: PolylineTilingOptions;
+  /**
+   * When to draw circles as raster tiles; {@link CircleTilingOptions.Default} if omitted.
+   * The controller's `setCircleTilingOptions` replaces it later.
+   */
+  circleTilingOptions?: CircleTilingOptions;
 }
 
 function toLngLatBounds(bounds: GeoRectBounds | undefined): maplibregl.LngLatBoundsLike | undefined {
@@ -90,7 +101,7 @@ export class TomTomProvider extends MapProvider {
     // point drives that MapLibre map exactly like the MapLibre provider.
     const ttMap = new TomTomMap({
       apiKey: config.apiKey ?? '',
-      style: config.style ?? 'standardLight',
+      style: config.style ?? 'streetLight',
       mapLibre: {
         container,
         center: initialCamera?.center ?? [0, 0],
@@ -107,7 +118,10 @@ export class TomTomProvider extends MapProvider {
 
     // Track map immediately so destroy() can remove it even before load fires
     this.map = map;
+    // paddings are applied by the controller (camera-centre shift) on its first move, not as engine padding.
     this.ttMap = ttMap;
+    // Registered before the style loads so TomTomDesign.None never paints its basemap.
+    const blankBasemap = new TomTomBlankBasemap(map, ttMap, config.style);
 
     await new Promise<void>((resolve, reject) => {
       // 'load' fires once TomTom's Orbis style has finished loading on the MapLibre map.
@@ -136,11 +150,17 @@ export class TomTomProvider extends MapProvider {
     const markerEventController = new TomTomMarkerEventController(markerController);
     const circleController = getCircleController(holder, canEditStyle);
     const polylineController = getPolylineController(holder, canEditStyle);
+    // Many polylines are drawn as tiles by the tile service worker and shown as one raster
+    // layer (the view controller mounts it); taps still resolve against the original paths.
+    polylineController.tiler = new PolylineTiler(config.polylineTilingOptions ?? PolylineTilingOptions.Default);
+    // Many circles are drawn as tiles too, shown as one raster layer at the bottom of the circle
+    // band (the view controller mounts it); taps still resolve against the original circles.
+    circleController.tiler = new CircleTiler(config.circleTilingOptions ?? CircleTilingOptions.Default);
     const polygonController = getPolygonController(holder, canEditStyle);
     const groundImageController = getGroundImageController(holder, canEditStyle);
     const rasterLayerController = getRasterLayerController(holder, canEditStyle);
 
-    this.controller = new TomTomViewController(
+    const controller = new TomTomViewController(
       holder,
       markerController,
       markerEventController,
@@ -153,6 +173,8 @@ export class TomTomProvider extends MapProvider {
       config.initCameraPosition?.tilt ?? null,
       ttMap,
     );
+    controller.attachBlankBasemap(blankBasemap);
+    this.controller = controller;
     return this.controller;
   }
 
@@ -229,11 +251,11 @@ function getPolylineController(
 function getPolygonController(
   holder: TomTomMapViewHolder,
   canEditStyle: () => boolean,
-): TomTomPolygonConductor {
+): TomTomPolygonController {
   const polygonManager = new PolygonManager<TomTomActualPolygon>();
   const layer = new TomTomPolygonLayer({ holder, canEditStyle });
   const renderer = new TomTomPolygonOverlayRenderer({ layer, polygonManager, holder });
-  return new TomTomPolygonConductor(renderer);
+  return new TomTomPolygonController(renderer);
 }
 
 function getGroundImageController(

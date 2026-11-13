@@ -3,6 +3,7 @@ import {
   createDefaultIcon,
   createMarkerEntity,
   markerIconHashCode,
+  MarkerDrawOrderView,
   type AddParams,
   type BitmapIcon,
   type ChangeParams,
@@ -30,6 +31,9 @@ export class TomTomMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer<
   private readonly iconBitmaps = new Map<string, BitmapIcon>();
   private readonly pendingImageRemovals = new Set<string>();
 
+  /** @internal */
+  private readonly drawOrder = new MarkerDrawOrderView();
+
   readonly markerManager: MarkerManager<TomTomActualMarker>;
   readonly markerLayer: MarkerLayer;
   readonly dragLayer: MarkerDragLayer;
@@ -52,6 +56,9 @@ export class TomTomMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer<
     // MarkerLayer.draw() already filters out entities with visible=false,
     // so hiding the native marker while the animation overlay plays is free.
     this.supportsAnimationOverlay = true;
+    // Rewriting every feature's sort key is heavy, so the order catches up once
+    // the camera settles rather than following the rotation frame by frame.
+    holder.map.on('moveend', () => this.followHeading());
   }
 
   async onAdd(data: AddParams[]): Promise<(TomTomActualMarker | null)[]> {
@@ -107,7 +114,7 @@ export class TomTomMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer<
       },
       properties: {
         ...entity.marker.properties,
-        [TomTomMarkerProp.Z_INDEX]: resolveZIndex(entity.state),
+        [TomTomMarkerProp.Z_INDEX]: resolveZIndex(entity.state, this.drawOrder),
       },
     };
     this.markerLayer.draw(this.markerManager.allEntities());
@@ -140,6 +147,24 @@ export class TomTomMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer<
     this.dragLayer.drawSelected();
   }
 
+  /** Re-sorts after the map turns: among equal zIndex, the one lower on screen is in front. @internal */
+  private followHeading(): void {
+    const map = this.holder.map;
+    if (!this.drawOrder.update(map.getBearing(), map.getCenter().lng)) return;
+    for (const entity of this.markerManager.allEntities()) {
+      if (!entity.marker) continue;
+      entity.marker = {
+        ...entity.marker,
+        properties: {
+          ...entity.marker.properties,
+          [TomTomMarkerProp.Z_INDEX]: resolveZIndex(entity.state, this.drawOrder),
+        },
+      };
+    }
+    this.redraw();
+    this.drawDragLayer();
+  }
+
   redraw(): void {
     this.markerLayer.draw(this.markerManager.allEntities());
   }
@@ -170,7 +195,7 @@ export class TomTomMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer<
       properties: {
         [TomTomMarkerProp.ID]: state.id,
         [TomTomMarkerProp.ICON_ID]: iconId,
-        [TomTomMarkerProp.Z_INDEX]: resolveZIndex(state),
+        [TomTomMarkerProp.Z_INDEX]: resolveZIndex(state, this.drawOrder),
       },
     };
   }
@@ -305,9 +330,7 @@ function createIconOffset(icon: BitmapIcon): [number, number] {
   ];
 }
 
-function resolveZIndex(state: MarkerState): number {
-  // android-sdk と同じく、未指定(null)のときだけ緯度による自動 z-order にフォールバックする。
-  // 明示的な 0 は「z-order 0」として尊重する。
-  if (state.zIndex != null) return state.zIndex;
-  return Math.round(-state.position.latitude * 1_000_000 - state.position.longitude);
+function resolveZIndex(state: MarkerState, drawOrder: MarkerDrawOrderView): number {
+  // zIndex（未指定は 0）が先、同じなら回転後の画面で下、同じ行なら左が手前。全プロバイダ共通の順。
+  return drawOrder.order(state.zIndex, state.position);
 }

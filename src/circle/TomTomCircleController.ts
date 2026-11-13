@@ -24,11 +24,6 @@ export class TomTomCircleController extends CircleController<TomTomActualCircle>
     await this.renderer.redraw();
   }
 
-  override async clear(): Promise<void> {
-    await super.clear();
-    await this.renderer.redraw();
-  }
-
   /**
    * Hit-test a map click (its lat/lng) against the circles geometrically (inside
    * the fill radius) and dispatch the click on the matching circle. Does NOT use

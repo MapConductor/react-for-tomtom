@@ -4,7 +4,15 @@ import {
   type GroundImageEntity,
   type GroundImageState,
 } from '@mapconductor/js-sdk-core';
-import { bringMarkerLayersToFront, groundImageCoordinates, removeLayerIfExists, removeSourceIfExists } from '../helpers';
+import {
+  bringMarkerLayersToFront,
+  forgetOverlayStackKey,
+  groundImageCoordinates,
+  overlayLayerBeforeId,
+  rememberOverlayStackKey,
+  removeLayerIfExists,
+  removeSourceIfExists,
+} from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 type Coordinates = ReturnType<typeof groundImageCoordinates>;
@@ -18,6 +26,13 @@ export class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverlay
   private readonly canEditStyle: () => boolean;
   /** Last values applied to the map style, keyed by state id. */
   private readonly applied = new Map<string, { url: string; coordsKey: string; opacity: number }>();
+  // Removals that arrived while the style could not be edited, applied by
+  // flushPendingRemovals() once it can. Dropping them instead left the image on
+  // the map for good: the controller forgets the state as soon as it asks for
+  // the removal, so nothing would ask again. canEditStyle turns false whenever
+  // isStyleLoaded() does, which includes the moments right after other overlays
+  // rewrite their sources, so clearOverlays() hit this every time.
+  private readonly pendingRemovals = new Set<string>();
 
   constructor({
     holder,
@@ -34,6 +49,8 @@ export class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverlay
   layerId(id: string): string { return `mc-gimg-lyr-${id}`; }
 
   async createGroundImage(state: GroundImageState): Promise<string | null> {
+    // Added again before a held-back removal ran: the caller wants it on the map.
+    this.pendingRemovals.delete(state.id);
     const coordinates = groundImageCoordinates(state);
     if (!coordinates) return null;
 
@@ -57,7 +74,7 @@ export class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverlay
           type: 'raster',
           source: sourceId,
           paint: { 'raster-opacity': state.opacity },
-        } as LayerSpecification);
+        } as LayerSpecification, this.groundImageBeforeId(layerId));
       }
       bringMarkerLayersToFront(this.holder.map);
       this.applied.set(state.id, {
@@ -79,7 +96,7 @@ export class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverlay
         type: 'raster',
         source: sourceId,
         paint: { 'raster-opacity': state.opacity },
-      } as LayerSpecification);
+      } as LayerSpecification, this.groundImageBeforeId(layerId));
     }
     this.applyToExisting(state, source, layerId, coordinates);
     bringMarkerLayersToFront(this.holder.map);
@@ -140,8 +157,36 @@ export class TomTomGroundImageOverlayRenderer extends AbstractGroundImageOverlay
 
   async removeGroundImage(entity: GroundImageEntity<string>): Promise<void> {
     this.applied.delete(entity.groundImage);
-    if (!this.canEditStyle()) return;
-    removeLayerIfExists(this.holder.map, this.layerId(entity.groundImage));
-    removeSourceIfExists(this.holder.map, this.sourceId(entity.groundImage));
+    if (!this.canEditStyle()) {
+      this.pendingRemovals.add(entity.groundImage);
+      return;
+    }
+    this.pendingRemovals.delete(entity.groundImage);
+    this.removeFromStyle(entity.groundImage);
+  }
+
+  /**
+   * Applies the removals held back while the style could not be edited.
+   * @internal
+   */
+  flushPendingRemovals(): void {
+    if (this.pendingRemovals.size === 0 || !this.canEditStyle()) return;
+    for (const id of this.pendingRemovals) this.removeFromStyle(id);
+    this.pendingRemovals.clear();
+  }
+
+  /**
+   * Under the polygons, circles, polylines and markers, above the rasters, whatever order the
+   * overlays were added in. Ground images have no zIndex; among themselves they keep the order
+   * they were handed over in.
+   */
+  private groundImageBeforeId(layerId: string): string | undefined {
+    return overlayLayerBeforeId(this.holder.map, rememberOverlayStackKey(this.holder.map, layerId, 'groundImage'));
+  }
+
+  private removeFromStyle(id: string): void {
+    forgetOverlayStackKey(this.holder.map, this.layerId(id));
+    removeLayerIfExists(this.holder.map, this.layerId(id));
+    removeSourceIfExists(this.holder.map, this.sourceId(id));
   }
 }

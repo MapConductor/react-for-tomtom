@@ -7,7 +7,21 @@ import {
   type RasterLayerOverlayRenderer,
   type RasterLayerState,
 } from '@mapconductor/js-sdk-core';
-import { bringMarkerLayersToFront, createRasterSource, removeLayerIfExists, removeSourceIfExists } from '../helpers';
+import {
+  bringMarkerLayersToFront,
+  createRasterSource,
+  forgetOverlayStackKey,
+  MARKER_TILES_LAYER_ID,
+  POLYGON_TILES_LAYER_ID,
+  POLYLINE_TILES_LAYER_ID,
+  CIRCLE_TILES_LAYER_ID,
+  moveLayerToStackPlace,
+  overlayLayerBeforeId,
+  overlayStackKeyOf,
+  rememberOverlayStackKey,
+  removeLayerIfExists,
+  removeSourceIfExists,
+} from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 /** GL のソース／レイヤー ID の対。android-sdk の TomTomRasterLayerHandle と同一。 */
@@ -53,10 +67,14 @@ export class TomTomRasterLayerOverlayRenderer
       const { prev } = params;
       const next = params.current.state;
       if (prev.state.source !== next.source) {
-        this.removeLayer(prev.layer);
+        // Replaced, not removed: the new layer keeps the old one's place among equal zIndexes.
+        this.removeLayer(prev.layer, { keepStackPlace: true });
         return this.addLayer(next);
       }
       this.updateLayer(prev.layer, next);
+      if (prev.state.zIndex !== next.zIndex && prev.layer.layerId !== MARKER_TILES_LAYER_ID && prev.layer.layerId !== POLYGON_TILES_LAYER_ID && prev.layer.layerId !== POLYLINE_TILES_LAYER_ID && prev.layer.layerId !== CIRCLE_TILES_LAYER_ID && this.canEditStyle()) {
+        moveLayerToStackPlace(this.holder.map, prev.layer.layerId, this.stackKey(prev.layer.layerId, next));
+      }
       return prev.layer;
     });
     bringMarkerLayersToFront(this.holder.map);
@@ -91,16 +109,62 @@ export class TomTomRasterLayerOverlayRenderer
     }
     const opacity = state.visible ? state.opacity : 0;
     if (!this.holder.map.getLayer(handle.layerId)) {
-      this.holder.map.addLayer({
-        id: handle.layerId,
-        type: 'raster',
-        source: handle.sourceId,
-        paint: { 'raster-opacity': opacity },
-      } as LayerSpecification);
+      this.holder.map.addLayer(
+        {
+          id: handle.layerId,
+          type: 'raster',
+          source: handle.sourceId,
+          paint: { 'raster-opacity': opacity },
+        } as LayerSpecification,
+        this.beforeId(handle.layerId, state),
+      );
     } else {
       this.holder.map.setPaintProperty(handle.layerId, 'raster-opacity', opacity);
     }
     return handle;
+  }
+
+  /** This raster's place in the overlay stack: the lowest band, ordered by zIndex. */
+  private stackKey(layerId: string, state: RasterLayerState) {
+    return rememberOverlayStackKey(this.holder.map, layerId, 'rasterLayer', state.zIndex);
+  }
+
+  /**
+   * Under every other overlay (the raster band is the lowest), and under the basemap's labels,
+   * whichever comes first. Marker, polygon, circle and polyline tiles are drawn as a raster but
+   * belong with the markers, the polygons, the circles and the polylines, and are not imagery: they
+   * do not go under the labels either
+   * (under the first label the polygon tiles can end up beneath the style's opaque fills).
+   */
+  private beforeId(layerId: string, state: RasterLayerState): string | undefined {
+    if (layerId === MARKER_TILES_LAYER_ID || layerId === POLYGON_TILES_LAYER_ID || layerId === POLYLINE_TILES_LAYER_ID || layerId === CIRCLE_TILES_LAYER_ID) {
+      return overlayLayerBeforeId(this.holder.map, overlayStackKeyOf(this.holder.map, layerId)!);
+    }
+    const stack = overlayLayerBeforeId(this.holder.map, this.stackKey(layerId, state));
+    const label = this.firstBasemapLabelLayerId();
+    if (label == null) return stack;
+    if (stack == null) return label;
+    const layers = this.holder.map.getStyle?.()?.layers?.map((layer) => layer.id) ?? [];
+    return layers.indexOf(label) < layers.indexOf(stack) ? label : stack;
+  }
+
+  /**
+   * The style's first label layer, so a raster overlay can go under it.
+   *
+   * Appended at the top of the style instead, a raster overlay covers the
+   * place names, road names and shields the style draws -- a vector tile
+   * layer's own roads run straight through them, which is what "the labels
+   * are under the lines" looks like. Every raster overlay has the same
+   * problem, so the rule lives here rather than in each of them.
+   *
+   * Our own layers are skipped: markers are a symbol layer too, and anchoring
+   * to them would put the raster back above the labels.
+   */
+  private firstBasemapLabelLayerId(): string | undefined {
+    const layers = this.holder.map.getStyle?.()?.layers;
+    if (!layers) return undefined;
+    const anchor = layers.find((layer) => layer.type === 'symbol' && !isOurLayerId(layer.id));
+    return anchor?.id;
   }
 
   private updateLayer(handle: TomTomRasterLayerHandle, state: RasterLayerState): void {
@@ -128,7 +192,8 @@ export class TomTomRasterLayerOverlayRenderer
     }
   }
 
-  private removeLayer(handle: TomTomRasterLayerHandle): void {
+  private removeLayer(handle: TomTomRasterLayerHandle, { keepStackPlace = false } = {}): void {
+    if (!keepStackPlace) forgetOverlayStackKey(this.holder.map, handle.layerId);
     if (!this.canEditStyle()) {
       this.pendingRemovals.push(handle);
       return;
@@ -136,4 +201,9 @@ export class TomTomRasterLayerOverlayRenderer
     removeLayerIfExists(this.holder.map, handle.layerId);
     removeSourceIfExists(this.holder.map, handle.sourceId);
   }
+}
+
+/** True for layers this SDK adds, as opposed to the style's own. */
+function isOurLayerId(id: string): boolean {
+  return id.startsWith('mc-');
 }

@@ -1,6 +1,6 @@
 import type { GeoJSONSource, LayerSpecification } from 'maplibre-gl';
 import type { PolylineEntity } from '@mapconductor/js-sdk-core';
-import { bringMarkerLayersToFront, type FeatureCollection, type LineFeature } from '../helpers';
+import { bringMarkerLayersToFront, setSourceFeatures, type FeatureCollection, type LineFeature, overlayLayerBeforeId, overlayStackKeyOf } from '../helpers';
 import { TomTomMapViewHolder } from '../TomTomMapViewHolder';
 
 export type TomTomActualPolyline = LineFeature[];
@@ -37,15 +37,20 @@ export class TomTomPolylineLayer {
   draw(entities: PolylineEntity<TomTomActualPolyline>[]): boolean {
     if (!this.ensureStyleResources()) return false;
 
+    // Features are drawn in list order: zIndex, then the order handed over (a stable sort), as
+    // the polygon layer and the polyline tiles do. Without it a footpath given after a highway
+    // was drawn over it.
+    const ordered = [...entities].sort((a, b) => a.state.zIndex - b.state.zIndex);
     const data: FeatureCollection = {
       type: 'FeatureCollection',
-      features: entities.flatMap((entity) => entity.polyline),
+      // A tiled polyline (core PolylineController.tiler) is kept for taps with no GeoJSON: polyline is null.
+      features: ordered.flatMap((entity) => entity.polyline ?? []),
     };
 
     try {
       const source = this.holder.map.getSource(this.sourceId) as GeoJSONSource | undefined;
       if (!source) return false;
-      source.setData(data);
+      setSourceFeatures(source, data.features);
       return true;
     } catch {
       return false;
@@ -79,7 +84,7 @@ export class TomTomPolylineLayer {
               'line-width': ['get', TomTomPolylineLayer.Prop.STROKE_WIDTH],
             },
           } as LayerSpecification,
-          map.getLayer('mc-marker-layer') ? 'mc-marker-layer' : undefined,
+          overlayLayerBeforeId(map, overlayStackKeyOf(map, this.layerId) ?? { kind: 'polyline' }),
         );
       }
       bringMarkerLayersToFront(map);
